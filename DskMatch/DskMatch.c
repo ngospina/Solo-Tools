@@ -86,8 +86,8 @@ static char image_name[PATH_LENGTH];
 static unsigned int dsk_map[DISK_PAGES][2];
 static unsigned int dsk_list[DISK_PAGES];
 
+static unsigned int image_dsk_map[DISK_PAGES];
 static unsigned int dsk_image_map[DISK_PAGES][2];
-static unsigned int image_dsk_map[DISK_PAGES][2];
 
 static char path[PATH_LENGTH];
 
@@ -113,7 +113,7 @@ static void write_dsk_map(FILE *out)
 	unsigned int page;
 
 	fprintf(out, "/*\n\tDskImageMap.h\n*/\n\n");
-	fprintf(out, "#IF !defined(_DSKIMAGEMAP_H_)\n\n");
+	fprintf(out, "#ifndef _DSKIMAGEMAP_H_\n\n");
 	fprintf(out, "#define _DSKIMAGEMAP_H_\n\n");
 	fprintf(out, "static int dsk_image_map[%d] = {", DISK_PAGES);
 	for (page = 0; page < DISK_PAGES; page++)
@@ -143,45 +143,7 @@ static void write_dsk_map(FILE *out)
 		}
 	}
 	fprintf(out, "\n};\n\n");
-	fprintf(out, "#ENDIF\n");
-}
-
-static void write_image_map(FILE *out)
-{
-	unsigned int page;
-
-	fprintf(out, "/*\n\tImageDskMap.h\n*/\n\n");
-	fprintf(out, "#IF !defined(_IMAGEDSKMAP_H_)\n\n");
-	fprintf(out, "#define _IMAGEDSKMAP_H_\n\n");
-	fprintf(out, "static int image_dsk_map[%d] = {", DISK_PAGES);
-	for (page = 0; page < DISK_PAGES; page++)
-	{
-		if (page % 12 == 0)
-		{
-			fprintf(out, "\n/*%4d*/\t", page);
-		}
-		fprintf(out, "%4d", image_dsk_map[page][0]);
-		if (page != DISK_PAGES - 1)
-		{
-			fprintf(out, ",");
-		}
-	}
-	fprintf(out, "\n};\n\n");
-	fprintf(out, "static int image_dsk_LCS_length[%d] = {", DISK_PAGES);
-	for (page = 0; page < DISK_PAGES; page++)
-	{
-		if (page % 12 == 0)
-		{
-			fprintf(out, "\n/*%4d*/\t", page);
-		}
-		fprintf(out, "%4d", image_dsk_map[page][1]);
-		if (page != DISK_PAGES - 1)
-		{
-			fprintf(out, ",");
-		}
-	}
-	fprintf(out, "\n};\n\n");
-	fprintf(out, "#ENDIF\n");
+	fprintf(out, "#endif\n");
 }
 
 static void write_geometry(FILE *file, unsigned int page)
@@ -211,23 +173,6 @@ static void write_dsk_image_map(FILE *file)
 	}
 }
 
-static void write_image_dsk_map(FILE *file)
-{
-	unsigned int page;
-
-	for (page = 0; page < DISK_PAGES; page++)
-	{
-		if (image_dsk_map[page][0] != DISK_PAGES)
-		{
-			fprintf(file, "%4d ", page);
-			write_geometry(file, page);
-			fprintf(file, " %4d ", image_dsk_map[page][0]);
-			write_geometry(file, image_dsk_map[page][0]);
-			fprintf(file, "\n");
-		}
-	}
-}
-
 static unsigned int match_page(FILE *out, unsigned int dsk_page_number, unsigned int page_map)
 {
 	unsigned int image_page_number = dsk_image_map[dsk_page_number][0];
@@ -241,7 +186,7 @@ static unsigned int match_page(FILE *out, unsigned int dsk_page_number, unsigned
 		printf("Match page: %4d\n", dsk_page_number);
 		for (i = 0; i < DISK_PAGES; i++)
 		{
-			if (image_dsk_map[i][0] == DISK_PAGES)
+			if (image_dsk_map[i] == DISK_PAGES)
 			{
 				len = LCSLength(image_pages[i], *dsk_page, PAGE_LENGTH, PAGE_LENGTH);
 				if (len > max_lcs)
@@ -303,8 +248,7 @@ static unsigned int match_page(FILE *out, unsigned int dsk_page_number, unsigned
 		}
 		if (dsk_map[dsk_page_number][1] == image_page_number)
 		{
-			image_dsk_map[image_page_number][0] = dsk_page_number;
-			image_dsk_map[image_page_number][1] = lcs[image_page_number];
+			image_dsk_map[image_page_number] = dsk_page_number;
 			dsk_image_map[dsk_page_number][0] = image_page_number;
 			dsk_image_map[dsk_page_number][1] = lcs[image_page_number];
 		}
@@ -312,7 +256,7 @@ static unsigned int match_page(FILE *out, unsigned int dsk_page_number, unsigned
 	return image_page_number;
 }
 
-static void match_file(FILE *files[8], char * name, int dsk_page, int map_page)
+static void match_file(FILE *files[6], char * name, int dsk_page, int map_page)
 {
 	TFile *dsk_file, *image_file;
 	TPage *dsk_datapage, *image_datapage;
@@ -394,7 +338,7 @@ static void get_image_name(TFileEntry image_entry)
 	image_name[j] = '\0';
 }
 
-static void match_entry(FILE *files[8], TFileEntry dsk_entry, TFileEntry image_entry)
+static void match_entry(FILE *files[6], TFileEntry dsk_entry, TFileEntry image_entry)
 {
 	if (dsk_entry.id[0] != ' ')
 	{
@@ -407,7 +351,7 @@ static void match_entry(FILE *files[8], TFileEntry dsk_entry, TFileEntry image_e
 	}
 }
 
-static void match_catalog_page(FILE *files[8], unsigned short dsk_page)
+static void match_catalog_page(FILE *files[6], unsigned short dsk_page)
 {
 	TCatalog *dsk_catalog, *image_catalog;
 	unsigned int i, j, image_page = DISK_PAGES;
@@ -431,7 +375,7 @@ static void match_catalog_page(FILE *files[8], unsigned short dsk_page)
 	while (image_page != DISK_PAGES);
 }
 
-static void match_dsk(FILE *files[8])
+static void match_dsk(FILE *files[6])
 {
 	TFile *dsk_catalog, *image_catalog;
 	unsigned int i, image_page;
@@ -504,8 +448,7 @@ static void read_image_file(FILE *in, unsigned int *n_pages)
 	*n_pages = 0;
 	for (i = 0; i < DISK_PAGES; i++)
 	{
-		image_dsk_map[i][0] = DISK_PAGES;
-		image_dsk_map[i][1] = 0;
+		image_dsk_map[i] = DISK_PAGES;
 		k = fread(image_pages[i], 1, PAGE_LENGTH, in);
 		if (k == PAGE_LENGTH)
 		{
@@ -518,14 +461,14 @@ static void read_image_file(FILE *in, unsigned int *n_pages)
 	}
 }
 
-static unsigned int openFiles(FILE *files[8], char *dsk_filename, char *image_filename)
+static unsigned int openFiles(FILE *files[6], char *dsk_filename, char *image_filename)
 {
 	char filename[1024];
 	unsigned int i;
-	char *filenames[8] = { dsk_filename, image_filename, "catalogMatch.txt", "dataMatch.txt", "DskImageMap.h", "ImageDskMap.h", "DskImageMap.txt", "ImageDskMap.txt" };
+	char *filenames[6] = { dsk_filename, image_filename, "catalogMatch.txt", "dataMatch.txt", "DskImageMap.h", "DskImageMap.txt" };
 	unsigned int rc = 1;
 
-	for (i = 0; rc == 1 && i < 8; i++) {
+	for (i = 0; rc == 1 && i < 6; i++) {
 		strcpy(filename, path);
 		strcat(filename, filenames[i]);
 		files[i] = fopen(filename, i < 2 ? "rb" : "wb");
@@ -538,11 +481,11 @@ static unsigned int openFiles(FILE *files[8], char *dsk_filename, char *image_fi
 	return rc;
 }
 
-static void closeFiles(FILE *files[8])
+static void closeFiles(FILE *files[6])
 {
 	unsigned int i;
 
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < 6; i++)
 	{
 		if (files[i] != NULL)
 		{
@@ -555,7 +498,7 @@ static void closeFiles(FILE *files[8])
 int main(int argc, char *argv[])
 {
 	unsigned int n_dsk_pages, n_image_pages;
-	FILE *files[8] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+	FILE *files[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
 
 	if ((argc != 3) || (argv[0] == NULL))
 	{
@@ -577,9 +520,7 @@ int main(int argc, char *argv[])
 					fprintf(files[3], "Removable Pack Disks: %s %s\n\n", argv[1], argv[2]);
 					match_dsk(files);
 					write_dsk_map(files[4]);
-					write_image_map(files[5]);
-					write_dsk_image_map(files[6]);
-					write_image_dsk_map(files[7]);
+					write_dsk_image_map(files[5]);
 				}
 			}
 		}

@@ -2,7 +2,7 @@
 	DskImageMap.h
 */
 
-#IF !defined(_DSKIMAGEMAP_H_)
+#ifndef _DSKIMAGEMAP_H_
 
 #define _DSKIMAGEMAP_H_
 
@@ -812,4 +812,4 @@ static int dsk_image_LCS_length[4800] = {
 /*4788*/	   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0
 };
 
-#ENDIF
+#endif
