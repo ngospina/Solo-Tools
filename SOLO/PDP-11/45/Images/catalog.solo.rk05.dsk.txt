@@ -1,0 +1,265 @@
+Removable Pack Disk: solo.rk05.dsk
+  pagemap[  1] =  156
+    (1800) [SEQCODE] MAKETEMP
+      Number of pages:    4
+        pagemap[  1] = 1802
+        pagemap[  2] = 1804
+        pagemap[  3] = 1806
+        pagemap[  4] = 1808
+    (1969) [  ASCII] SPASCALTEXT
+      Number of pages:   18
+        pagemap[  1] = 1971
+        pagemap[  2] = 1973
+        pagemap[  3] = 1975
+        pagemap[  4] = 1977
+        pagemap[  5] = 1979
+        pagemap[  6] = 1981
+        pagemap[  7] = 1983
+        pagemap[  8] = 1985
+        pagemap[  9] = 1987
+        pagemap[ 10] = 1989
+        pagemap[ 11] = 1991
+        pagemap[ 12] = 1976
+        pagemap[ 13] = 1978
+        pagemap[ 14] = 1988
+        pagemap[ 15] = 1990
+        pagemap[ 16] = 1995
+        pagemap[ 17] = 1997
+        pagemap[ 18] = 1999
+    (2198) [  ASCII] SPASS4TEXT
+      Number of pages:   65
+        pagemap[  1] = 2225
+        pagemap[  2] = 2227
+        pagemap[  3] = 2229
+        pagemap[  4] = 2231
+        pagemap[  5] = 2209
+        pagemap[  6] = 2211
+        pagemap[  7] = 2213
+        pagemap[  8] = 2215
+        pagemap[  9] = 2217
+        pagemap[ 10] = 2219
+        pagemap[ 11] = 2221
+        pagemap[ 12] = 2223
+        pagemap[ 13] = 2226
+        pagemap[ 14] = 2228
+        pagemap[ 15] = 2230
+        pagemap[ 16] = 2208
+        pagemap[ 17] = 2210
+        pagemap[ 18] = 2212
+        pagemap[ 19] = 2214
+        pagemap[ 20] = 2216
+        pagemap[ 21] = 2218
+        pagemap[ 22] = 2220
+        pagemap[ 23] = 2222
+        pagemap[ 24] = 2224
+        pagemap[ 25] = 2253
+        pagemap[ 26] = 2255
+        pagemap[ 27] = 2233
+        pagemap[ 28] = 2235
+        pagemap[ 29] = 2237
+        pagemap[ 30] = 2239
+        pagemap[ 31] = 2241
+        pagemap[ 32] = 2243
+        pagemap[ 33] = 2245
+        pagemap[ 34] = 2247
+        pagemap[ 35] = 2249
+        pagemap[ 36] = 2251
+        pagemap[ 37] = 2254
+        pagemap[ 38] = 2232
+        pagemap[ 39] = 2234
+        pagemap[ 40] = 2236
+        pagemap[ 41] = 2238
+        pagemap[ 42] = 2240
+        pagemap[ 43] = 2242
+        pagemap[ 44] = 2244
+        pagemap[ 45] = 2246
+        pagemap[ 46] = 2248
+        pagemap[ 47] = 2250
+        pagemap[ 48] = 2252
+        pagemap[ 49] = 2257
+        pagemap[ 50] = 2259
+        pagemap[ 51] = 2261
+        pagemap[ 52] = 2263
+        pagemap[ 53] = 2265
+        pagemap[ 54] = 2267
+        pagemap[ 55] = 2269
+        pagemap[ 56] = 2271
+        pagemap[ 57] = 2273
+        pagemap[ 58] = 2275
+        pagemap[ 59] = 2277
+        pagemap[ 60] = 2279
+        pagemap[ 61] = 2258
+        pagemap[ 62] = 2260
+        pagemap[ 63] = 2262
+        pagemap[ 64] = 2264
+        pagemap[ 65] = 2266
+    (3199) [  ASCII] WRITETEXT
+      Number of pages:    9
+        pagemap[  1] = 3201
+        pagemap[  2] = 3203
+        pagemap[  3] = 3205
+        pagemap[  4] = 3207
+        pagemap[  5] = 3209
+        pagemap[  6] = 3211
+        pagemap[  7] = 3213
+        pagemap[  8] = 3215
+        pagemap[  9] = 3200
+    ( 504) [SCRATCH] AUTOLOAD
+      Number of pages:    1
+        pagemap[  1] =  510
+    ( 214) [SEQCODE] CONSOLE
+      Number of pages:    1
+        pagemap[  1] =  217
+    (1895) [CONCODE] REALTIME
+      Number of pages:   11
+        pagemap[  1] = 1898
+        pagemap[  2] = 1900
+        pagemap[  3] = 1902
+        pagemap[  4] = 1904
+        pagemap[  5] = 1906
+        pagemap[  6] = 1908
+        pagemap[  7] = 1901
+        pagemap[  8] = 1931
+        pagemap[  9] = 1933
+        pagemap[ 10] = 1935
+        pagemap[ 11] = 1937
+    ( 480) [CONCODE] JOBSTREAM
+      Number of pages:   17
+        pagemap[  1] =  482
+        pagemap[  2] =  500
+        pagemap[  3] =  502
+        pagemap[  4] =  507
+        pagemap[  5] =  509
+        pagemap[  6] =  511
+        pagemap[  7] = 1916
+        pagemap[  8] = 1921
+        pagemap[  9] = 1953
+        pagemap[ 10] = 1955
+        pagemap[ 11] = 1957
+        pagemap[ 12] = 1959
+        pagemap[ 13] = 1967
+        pagemap[ 14] = 1946
+        pagemap[ 15] = 1948
+        pagemap[ 16] = 1956
+        pagemap[ 17] = 1944
+  pagemap[  2] =  158
+    ( 168) [  ASCII] BACKUPMAN
+    ( 336) [SEQCODE] CPASS3
+    (1177) [  ASCII] EDITMAN
+    (1807) [  ASCII] MAKETEMPMAN
+    (2064) [SEQCODE] SPASS3
+    (1960) [SEQCODE] JOBINPUT
+    (2672) [SEQCODE] JOBOUTPUT
+  pagemap[  3] =  160
+    (1048) [  ASCII] BACKUPTEXT
+    ( 201) [  ASCII] CARDSTEXT
+    ( 288) [  ASCII] CPASS2TEXT
+    ( 832) [  ASCII] CPASS7TEXT
+    (1067) [  ASCII] DISKTEXT
+    (1810) [  ASCII] MAKETEMPTEXT
+    (2016) [  ASCII] SPASS2TEXT
+    (2424) [  ASCII] SPASS7TEXT
+    (3246) [  ASCII] FILETEXT
+  pagemap[  4] =  162
+    (1212) [  ASCII] FILEMAN
+    ( 475) [  ASCII] TAPEMAN
+    (2688) [SCRATCH] TEMP1
+    (2929) [SCRATCH] TEMP2
+    (1633) [  ASCII] KERNELTEXT4
+    (1871) [SEQCODE] PRINTER
+    (3196) [  ASCII] WRITEMAN
+    ( 553) [SEQCODE] CPASS4
+    (1992) [SEQCODE] SPASS2
+    (1961) [  ASCII] JOBOUTPUTTXT
+    (3271) [SEQCODE] JOBSERVICE
+  pagemap[  5] =  164
+    ( 456) [SEQCODE] TAPE
+  pagemap[  6] =  166
+    ( 219) [  ASCII] CONSOLETEXT
+    ( 236) [  ASCII] COPYTEXT
+    (4159) [SEQCODE] IO
+    ( 577) [  ASCII] CPASS5TEXT
+    ( 220) [SEQCODE] COPY
+    (2256) [  ASCII] SPASS5TEXT
+    (2376) [SEQCODE] SPASS7
+    ( 445) [  ASCII] TAPETEXT
+    ( 672) [SEQCODE] CPASS5
+  pagemap[  7] =  155
+    (2665) [  ASCII] JOBINPUTTEXT
+    (3489) [SCRATCH] JOBBUFFER1
+    (2496) [SEQCODE] SPASS1
+    (1923) [SEQCODE] DISK
+    ( 177) [  ASCII] CARDSMAN
+    (1762) [SEQCODE] LIST
+    (1823) [SEQCODE] MOVE
+  pagemap[  8] =  157
+    (1483) [  ASCII] KERNELTEXT3
+    ( 528) [  ASCII] MOVEMAN
+    (1945) [SEQCODE] SPASCAL
+  pagemap[  9] =  159
+    (3600) [SCRATCH] JOBBUFFER2
+    (3268) [SEQCODE] START
+    ( 370) [  ASCII] CPASS3TEXT
+    ( 698) [SEQCODE] CPASS6
+    (1781) [  ASCII] LISTTEXT
+    ( 537) [  ASCII] READTEXT
+    (2088) [  ASCII] SPASS3TEXT
+    ( 169) [  ASCII] CPASCALMAN
+    (1776) [  ASCII] LISTMAN
+    (1834) [  ASCII] PRINTERMAN
+    ( 506) [  ASCII] READMAN
+    (1968) [  ASCII] SPASCALMAN
+    (2305) [SEQCODE] SPASS6
+  pagemap[ 10] =  161
+    ( 442) [  ASCII] STARTMAN
+    (3193) [SEQCODE] WRITE
+    ( 188) [  ASCII] REALTIMETEXT
+    (3673) [SEQCODE] JOB
+    ( 180) [  ASCII] COMMANDS
+  pagemap[ 11] =  163
+    (3480) [SEQCODE] BACKUP
+    ( 462) [SEQCODE] FILE
+    ( 216) [  ASCII] CONSOLEMAN
+    ( 230) [  ASCII] COPYMAN
+    ( 792) [SEQCODE] CPASS7
+    (1128) [SEQCODE] DO
+    (1057) [  ASCII] DISKMAN
+    (1349) [  ASCII] KERNELTEXT2
+  pagemap[ 12] =  165
+    (2184) [SEQCODE] SPASS5
+    (1224) [CONCODE] PIPELINE
+    (3744) [  ASCII] SOLOCOPY
+    (2559) [  ASCII] CPASS1TEXT
+    ( 744) [  ASCII] CPASS6TEXT
+    ( 892) [SEQCODE] CPASS1
+    (1014) [  ASCII] PRINTERTEXT
+    ( 154) [SCRATCH] CATALOG
+    (3516) [  ASCII] SOLOTEXT
+    ( 505) [  ASCII] SPASS1TEXT
+    (2352) [  ASCII] SPASS6TEXT
+    (2616) [  ASCII] STARTTEXT
+    ( 191) [  ASCII] JOBSTREAMTXT
+    (1912) [  ASCII] JOBSERVICETX
+  pagemap[ 13] =  167
+    (1032) [  ASCII] PREFIX
+    (3240) [  ASCII] JOBPREFIX
+    ( 240) [SEQCODE] CPASCAL
+    (1225) [  ASCII] PIPELINETEXT
+  pagemap[ 14] =  172
+    ( 192) [SEQCODE] CARDS
+    (1157) [SEQCODE] EDIT
+    (2161) [SEQCODE] SPASS4
+    (3286) [  ASCII] SOLOFILES
+    ( 264) [SEQCODE] CPASS2
+  pagemap[ 15] =  174
+    (1897) [CONCODE] SOLO
+    ( 184) [SCRATCH] NEXT
+    (1848) [SEQCODE] READ
+    ( 261) [  ASCII] CPASCALTEXT
+    ( 600) [  ASCII] CPASS4TEXT
+    ( 183) [  ASCII] DOMAN
+    ( 433) [  ASCII] DOTEXT
+    (1178) [  ASCII] EDITTEXT
+    ( 412) [  ASCII] IOTEXT
+    (1018) [  ASCII] KERNELTEXT1
+    ( 532) [  ASCII] MOVETEXT
