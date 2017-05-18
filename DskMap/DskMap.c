@@ -1,8 +1,8 @@
 /*
-	ImageMap.c
-	Copyright (C) 2017, Gerardo Ospina
+	DskMap.c
+	Copyright (C) 2017. Gerardo Ospina
 
-	This program creates C header files with page map vectors for .dsk and .rk05 
+	This program creates C header file with page map vector for dsk and rk05 
 	SOLO Images
 
 	Permission is hereby granted, free of charge, to any person obtaining a
@@ -33,15 +33,12 @@
 
 #include "DskImageMap.h"
 
-#define HEADER_NAME "DskRK05Map.h"
-
 #define PAGE_LENGTH	512
 #define DISK_PAGES	4800
 
 typedef unsigned char TPage[PAGE_LENGTH];
 
 static unsigned int dsk_rk05_map[DISK_PAGES];
-static unsigned int rk05_dsk_map[DISK_PAGES];
 
 static void genSectorMap(int page, int index)
 {
@@ -60,7 +57,6 @@ static void genSectorMap(int page, int index)
 	for (sector = 0; sector < 24; sector++)
 	{
 		dsk_rk05_map[page + sector] = sectorMap[sector];
-		rk05_dsk_map[sectorMap[sector]] = page + sector;
 	}
 }
 
@@ -75,7 +71,6 @@ static void genImageMaps(void)
 		index = (cylinder * 5) % 24;
 		basePage = cylinder * 24;
 		dsk_rk05_map[basePage + index] = basePage;
-		rk05_dsk_map[basePage] = basePage + index;
 		genSectorMap(basePage, index);
 	}
 }
@@ -100,31 +95,7 @@ static void write_dsk_rk05_map(FILE *file)
 			fprintf(file, ",");
 		}
 	}
-	fprintf(file, "\n}\n\n");
-	fprintf(file, "#endif\n");
-}
-
-static void write_rk05_dsk_map(FILE *file)
-{
-	int page;
-
-	fprintf(file, "/*\n\tRK05DskMap.h\n*/\n\n");
-	fprintf(file, "#ifndef _RK05DSKMAP_H_\n\n");
-	fprintf(file, "#define _RK05DSKMAP_H_\n");
-	fprintf(file, "\nstatic int rk05_dsk_map[%d] = {", DISK_PAGES);
-	for (page = 0; page < DISK_PAGES; page++)
-	{
-		if (page % 12 == 0)
-		{
-			fprintf(file, "\n/*%4d*/\t", page);
-		}
-		fprintf(file, "%4d", rk05_dsk_map[page]);
-		if (page != DISK_PAGES - 1)
-		{
-			fprintf(file, ",");
-		}
-	}
-	fprintf(file, "\n}\n\n");
+	fprintf(file, "\n};\n\n");
 	fprintf(file, "#endif\n");
 }
 
@@ -152,13 +123,13 @@ static void write_dsk_rk05(FILE *file)
 	}
 }
 
-static unsigned int openFiles(FILE *files[3])
+static unsigned int openFiles(FILE *files[2])
 {
-	char *filenames[3] = {"DskRK05Map.h", "RK05DskMap.h", "DskRK05Map.txt" };
+	char *filenames[2] = {"DskRK05Map.h", "DskRK05Map.txt" };
 	unsigned int rc = 0;
 	unsigned int i;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 2; i++) {
 		files[i] = fopen(filenames[i], "wb");
 		if (files[i] == NULL)
 		{
@@ -169,14 +140,14 @@ static unsigned int openFiles(FILE *files[3])
 			rc++;
 		}
 	}
-	return rc == 3;
+	return rc == 2;
 }
 
-static void closeFiles(FILE *files[3])
+static void closeFiles(FILE *files[2])
 {
 	unsigned int i;
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < 2; i++)
 	{
 		if (files[i] != NULL)
 		{
@@ -214,28 +185,18 @@ static void checkDskImageMap(void)
 			total++;
 		}
 	}
-	printf("%4d %4d/%4d/%4d\n", nomatch, valid, invalid, total);
-	for (page = 0; page < DISK_PAGES; page++)
-	{
-		if (dsk_image_map[page] == page)
-		{
-			printf("%d\n", page);
-		}
-	}
-	getchar();
 }
 
 int main(int argc, char *argv[])
 {
-	FILE *file[3];
+	FILE *file[2];
 
 	if (openFiles(file))
 	{
 		genImageMaps();
 		checkDskImageMap();
 		write_dsk_rk05_map(file[0]);
-		write_rk05_dsk_map(file[1]);
-		write_dsk_rk05(file[2]);
+		write_dsk_rk05(file[1]);
 	}
 	closeFiles(file);
 	return EXIT_SUCCESS;
