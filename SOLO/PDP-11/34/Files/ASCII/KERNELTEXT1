@@ -1,0 +1,1851 @@
+.TITLE	KERNEL FOR CONCURRENT PASCAL
+.SBTTL	EDIT HISTORY
+;
+;<01>	10-APR-79	S. WILLIAMS
+;
+;	THIS CODE MODIFIED TO RUN BAREFOOT ON PDP-11/34 WITHOUT I/D SPACE
+;	SEPARATION, TWO REGISTER SETS, OR FLOATING POINT HARDWARE.
+;
+;	ALSO ADDED ABILITY TO BOOT FROM ANY RK05 UNIT ...
+;
+;
+;
+;
+;	SPL MACRO TO SIMULATE PDP-11/45 "SPL" INSTRUCTION
+;
+	.MACRO	SPL	PL
+	.IF	EQ,PL
+	CLR	@#PSW
+	.IFF
+	MOV	#PL*40,@#PSW
+	.ENDC
+	.ENDM	SPL
+
+;
+;
+;	MACRO TO PUSH STUFF ON STACK
+;
+;
+	.MACRO	PUSH	LIST
+	.IRP	X,<LIST>
+	MOV	X,-(SP)
+	.ENDR
+	.ENDM	PUSH
+;
+;	MACRO TO UNDO A PUSH
+;
+	.MACRO	POP	LIST
+	.IRP	X,<LIST>
+	MOV	(SP)+,X
+	.ENDR
+	.ENDM	POP
+;
+;	FAKE OUT THE MTPD AND MFPD INSTRUCTIONS FOR 11/40 AND 11/35
+;
+	.MACRO	MTPD	X
+	MTPI	X
+	.ENDM	MTPD
+;
+	.MACRO	MFPD	X
+	MFPI	X
+	.ENDM	MFPD
+
+	.IF	NDF, F$PU	;USED BY SW FLOATING POINT
+;
+;	GET PSW INTO REGISTER 0
+;
+	.MACRO	GETPSW	X
+	EMT	0		;FETCH PSW INTO R0
+	MOV	R0,X		;MOV TO DESTINATION
+	.ENDM	GETPSW
+
+	.ENDC			;F$PU
+
+;
+;
+;	MACRO TO SET UP COMMON INTERRUPT ENTRY CODE
+;
+;
+	.MACRO	INTSRV	R	;R -> SERVICE ROUTINE
+	PUSH	<R5,R4,R3,R2,R1,R0> ;SAVE REGS
+	.IF	NB,R
+	PUSH	#KNEXIT		;FAKE
+	JMP	@#R		;	JSR
+	.ENDC
+	.ENDM	INTSRV
+.SBTTL	FLOATING POINT SUPPORT
+;
+;
+;<01>	THIS SECTION ADDED BY EDIT <01>
+;
+;
+;	IF AN FPU-11 IS NOT AVAILABLE, LEAVE ASSEMBLY-TIME VARIABLE "F$PU"
+;	UNDEFINED, AND A SET OF SOFTWARE ROUTINES WILL BE INCLUDED AT 
+;	ASSEMBLY TIME.
+;
+;	ADDITIONAL SIZE: APP 1K(W).
+;
+;F$PU	=	1			;<01>	DEFINE FOR FPU SUPPORT
+
+.IF	NDF,F$PU			;<01>	INCLUDE SW ROUTINES ONLY IF
+					;<01>	NO FPU
+
+.GLOBL	$ADD				;<01>	DOUBLE FLOATING ADD
+.GLOBL	$SBD				;<01>	DOUBLE FLOATING SUBTRACT
+.GLOBL	$MLD				;<01>	DOUBLE FLOATING MULTIPLY
+.GLOBL	$DVD				;<01>	DOUBLE FLOATING DIVIDE
+.GLOBL	$DCMP				;<01>	DOUBLE FLOATING COMPARE
+.GLOBL	$ID				;<01>	CONVERT INTEGER -> DOUBLE
+.GLOBL	$DI				;<01>	CONVERT DOUBLE  -> INTEGER
+.GLOBL	OVERFL				;<01>	OVERFLOW EXIT POINT
+
+
+.ENDC					;<01>
+                        ;****  ASSEMBLY OPTIONS  ****
+                        ;*
+                        ;*
+                        ;*
+                                .SBTTL ASSEMBLY OPTIONS
+                        ;*
+                        ;*
+                        ;*
+        .NLIST TTM;                    NEGATE CONSOLE MODE
+;*
+;*
+;*
+        .DSABL GBL;                    NO GLOBALS
+;*
+;*
+;*
+;<01>	.ENABL CDR;                    IGNORE CARD SERIALIZATION
+	.ENABL AMA		;<01>  USE ABSOLUTE ADDRESSING IN KERNEL ONLY!
+;*
+;*
+;*
+;*
+;*      THE RSX11M KERNEL BUILDER REQUIRES A RELOCATABLE
+;*      ASSEMBLY.  THEREFORE, THE FOLLOWING
+;*      ASECT IS CONVERTED INTO A COMMENT.
+       .ASECT ;<01>	RE-CONVERT FOR RT-11
+	. = 0 ;<01>	SET UP FOR 0 BASE ADDR.
+;*
+;*
+;*
+        .SBTTL PROGRAMMER IDENTIFICATION
+
+;****  A DECLARATION OF RESPONSIBILITY  *****
+;*
+;*
+;**************
+;*
+;*      THE DESIGN OF THIS KERNEL FOR CONCURRENT PASCAL IS BY
+;*
+;*             PER BRINCH HANSEN;
+;*
+;*      THE HIGH LEVEL ENCODING IS BY
+;*
+;*             PER BRINCH HANSEN,
+;*             ROBERT S. DEVERILL;
+;*
+;*      THE ASSEMBLER LEVEL ENCODING IS BY
+;*
+;*             ROBERT S. DEVERILL:_
+;*
+;*      BOTH OF WHOM ARE OF
+;*
+;*             INFORMATION SCIENCE
+;*             ENGINEERING DIVISION
+;*             CALIFORNIA INSTITUTE OF TECHNOLOGY
+;*             PASADENA CALIFORNIA.
+;*
+;**************
+;*
+;*      THE DATE OF THIS CURRENT VERSION IS 9 JUNE 1975.
+;*
+;*      THE ORIGINAL VERSION WAS WRITTEN BY 10 DEC 1974.
+;*
+;*
+;********************************************
+        .SBTTL PROCESSOR REGISTER NAMES
+
+;****  REGISTER NAMES  *****
+;*
+;*
+;*      THE REGISTER NAMES WHICH ARE USED IN MOST OF THIS MODULE ARE THE
+;*      NAMES SUPPLIED BY THE ASSEMBLER, TO WIT:
+;*
+R0      =      %0;
+R1      =      %1;
+R2      =      %2;
+R3      =      %3;
+R4      =      %4;
+R5      =      %5;
+SP      =      %6;
+PC      =      %7;
+;*
+;*
+;*      WE WILL REFER TO THE REGISTERS BY THEIR CONVENTIONAL PASCAL
+;*      NAMES ONLY ON THE RARE OCCASIONS WHEN THIS IS RELEVANT.  THE
+;*      PASCAL NAMES ARE:
+;*
+W       =      R0;                     WORD OR REAL SCRATCH REGISTER 0,
+X       =      R1;                     WORD OR REAL SCRATCH REGISTER 1,
+Y       =      R2;                     WORD SCRATCH REGISTER 2,
+Q       =      R3;                     USER CODE POINTER,
+B       =      R4;                     USER LOCAL BASE REGISTER,
+G       =      R5;                     USER GLOBAL BASE REGISTER,
+S       =      SP;                     PROCESSOR STACK TOP REGISTER,
+P       =      PC;                     PROCESSOR PROGRAM COUNTER.
+;*
+;*      BLOCK NUMBER FOR PROCESSOR INTERNAL REGISTERS
+;*
+.PRBLK  =      7600;                   BLOCK NUMBER OF THE HARDWARE
+;*                                     PERIPHERALS AND REGISTERS AREA
+;*
+;*      PROCESSOR INTERNAL REGISTERS
+;*
+PSW     =      177776;                 PROCESSOR STATUS WORD
+SLR     =      177774;                 STACK LIMIT REGISTER
+CSDR    =      177570;                 CONSOLE SWITCH AND DISPLAY REG
+LKS     =      177546;                 KW11-L LINE FREQUENCY CLOCK
+;*
+;*             BIT DEFINITIONS FOR LKS
+;*
+;*      =      ^B1111111100000000;     8 BITS - NOT USED
+LKSMON  =      ^B0000000010000000;     FREQUENCY MONITOR BIT
+LKSINE  =      ^B0000000001000000;     ENABLE INTERRUPT MODE
+;*      =      ^B0000000000111111;     6 BITS - NOT USED
+;*
+;*
+        .SBTTL MACHINE CORE PARAMETERS
+
+;****  MACHINE CORE SIZE PARAMETERS  *****
+;*
+;*
+.BLKSW  =      32.;                    SIZE OF SEGMENTATION BLOCK, WORDS
+.BLKSB  =      .BLKSW * 2.;            SIZE OF SEGMENTATION BLOCK, BYTES
+.KWSBK  =      1024. / .BLKSW;         SIZE OF A KILOWORD IN BLOCKS
+;*
+;*
+.SEGSW  =      4096.;                  SEGMENT SIZE IN WORDS
+.SEGSB  =      .SEGSW * 2.;            SEGMENT SIZE IN BYTES
+.SGSBK  =      .SEGSW / .BLKSW;        SEGMENT SIZE IN BLOCKS
+;*
+;****  MEMORY SEGMENTATION REGISTERS  *****
+;*
+SSR0    =      177572;                 SEGMENT STATUS REGISTER 0
+;*
+;*
+UISDR   =      177600;                 USER INSTR DESCR REGS 0-7
+UDSDR   =      177620;                 USER DATA DESCR REGS 0-7
+UISAR   =      177640;                 USER INSTR ADDR REGS 0-7
+UDSAR   =      177660;                 USER DATA ADDR REGS 0-7
+;*
+;*
+SISDR   =      172200;                 SUPERVISOR INSTR DESCR REGS 0-7
+SDSDR   =      172220;                 SUPERVISOR DATA DESCR REGS 0-7
+SISAR   =      172240;                 SUPERVISOR INSTR ADDR REGS 0-7
+SDSAR   =      172260;                 SUPERVISOR DATA ADDR REGS 0-7
+;*
+;*
+KISDR   =      172300;                 KERNEL INSTR DESCR REGS 0-7
+KDSDR   =      172320;                 KERNEL DATA DESCR REGS 0-7
+KISAR   =      172340;                 KERNEL INSTR ADDR REGS 0-7
+KDSAR   =      172360;                 KERNEL DATA ADDR REGS 0-7
+;*
+;*
+;****  SEGMENT DESCRIPTOR REGISTER DEFINITIONS  *****
+;*
+;*      THE SDR FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS:
+;*
+SDRACF  =      ^B0000000000000001;     3 BITS - ACCESS CONTROL FIELD
+SDRED   =      ^B0000000000001000;     1 BIT  - EXPANSION DIRECTION
+;*      =      ^B0000000000110000;     2 BITS - NOT USED
+SDRWR   =      ^B0000000001000000;     1 BIT  - WRITE TO SEGMENT
+SDRAT   =      ^B0000000010000000;     1 BIT  - ACCESS TRAPPED
+SDRPLF  =      ^B0000000100000000;     7 BITS - SEGMENT LENGTH
+;*      =      ^B1000000000000000;     1 BIT  - NOT USED
+;*
+;*      ACCESS CONTROL FIELD BITS
+;*
+SDRAWA  =      ^B000;                  READ ABORT, WRITE ABORT
+SDRTWA  =      ^B001;                  READ TRAP , WRITE ABORT
+SDRNWA  =      ^B010;                  READ      , WRITE ABORT
+SDRTWT  =      ^B100;                  READ TRAP , WRITE TRAP
+SDRNWT  =      ^B101;                  READ      , WRITE TRAP
+SDRNWN  =      ^B110;                  READ      , WRITE
+;*
+;*      THE EXPANSION DIRECTION BIT
+;*
+SDREDU  =      0;                      SEGMENT EXPANDS UP
+SDREDD  =      1;                      SEGMENT EXPANDS DOWN
+;*
+;*      MACRO TO DEFINE SEGMENT DESCRIPTOR REGISTER CONTENTS
+;*
+        .MACRO SDRDEF NAME,AC,ED,PL
+     $1 =      SDRACF * AC;
+     $2 =      SDRED * ED + <SDRPLF * <129. * ED - 1>>;
+     $3 =      SDRPLF * <1 - <2 * ED>> * PL;
+NAME    =      $1 + $2 + $3;
+        .ENDM  SDRDEF
+;*
+;*             DEFINE THE USER SDR VALUE:
+;*
+;*                                     ALLOW READ AND WRITE,
+;*                                     EXPANSION DIRECTION UP,
+;*                                     128 BLOCKS.
+;*
+        SDRDEF USDR,SDRNWN,SDREDU,.SGSBK;
+;*
+;*             DEFINE THE KERNEL SDR VALUE:
+;*
+;*                                     ALLOW READ AND WRITE,
+;*                                     EXPANSION DIRECTION UP,
+;*                                     128 BLOCKS.
+;*
+KSDR    =      USDR;
+;*
+;*
+        .SBTTL PSW DEFINITIONS
+
+;****  PROCESSOR STATUS WORD FORMAT  *****
+;*
+;*      THE PSW FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS:
+;*
+PSCBIT  =      ^B0000000000000001;     1 BIT  - CARRY
+PSVBIT  =      ^B0000000000000010;     1 BIT  - OVERFLOW
+PSZBIT  =      ^B0000000000000100;     1 BIT  - RESULT = 0
+PSNBIT  =      ^B0000000000001000;     1 BIT  - RESULT < 0
+PSTBIT  =      ^B0000000000010000;     1 BIT  - TRAP SET
+PSPRTY  =      ^B0000000000100000;     3 BITS - PRIORITY
+;*      =      ^B0000011100000000;     3 BITS - NOT USED
+PSPMOD  =      ^B0001000000000000;     2 BITS - PREVIOUS MODE
+PSCMOD  =      ^B0100000000000000;     2 BITS - CURRENT MODE
+;*
+;*      THE RELEVANT FIELD VALUES ARE:
+;*
+PSCARR  =      PSCBIT * 1;             CARRY = TRUE
+PSOVER  =      PSVBIT * 1;             OVERFLOW = TRUE
+PSZERO  =      PSZBIT * 1;             RESULT ZERO = TRUE
+PSNEGA  =      PSNBIT * 1;             RESULT NEGATIVE = TRUE
+PSTTRP  =      PSTBIT * 1;             T-BIT TRAP IS SET
+PSPRT7  =      PSPRTY * 7;             PROCESSOR PRIORITY = 7
+PSPRT6  =      PSPRTY * 6;             PROCESSOR PRIORITY = 6
+PSPRT5  =      PSPRTY * 5;             PROCESSOR PRIORITY = 5
+PSPRT4  =      PSPRTY * 4;             PROCESSOR PRIORITY = 4
+PSPRT3  =      PSPRTY * 3;             PROCESSOR PRIORITY = 3
+PSPRT2  =      PSPRTY * 2;             PROCESSOR PRIORITY = 2
+PSPRT1  =      PSPRTY * 1;             PROCESSOR PRIORITY = 1
+PSPRT0  =      PSPRTY * 0;             PROCESSOR PRIORITY = 0
+PSPMDK  =      PSPMOD * KRNLMD;        PREVIOUS MODE = KERNEL
+PSPMDS  =      PSPMOD * SPVRMD;        PREVIOUS MODE = SUPERVISOR
+PSPMDU  =      PSPMOD * USERMD;        PREVIOUS MODE = USER
+PSCMDK  =      PSCMOD * KRNLMD;        CURRENT MODE = KERNEL
+PSCMDS  =      PSCMOD * SPVRMD;        CURRENT MODE = SUPERVISOR
+PSCMDU  =      PSCMOD * USERMD;        CURRENT MODE = USER
+;*
+;*      WHERE
+;*
+KRNLMD  =      ^B00;                   KERNEL MODE
+SPVRMD  =      ^B01;                   SUPERVISOR MODE
+USERMD  =      ^B11;                   USER MODE
+;*
+;*             DEFINE THE KERNEL PROCESSOR STATUS WORD
+;*
+KNLPSW  =      PSCMDK+PSPRT7	   ;   KERNEL MODE,
+                                   ;   REGISTER SET 0,
+                                   ;   PROCESSOR PRIORITY 7
+;*
+;*             DEFINE THE USER PROCESSOR STATUS WORD
+;*
+USRPSW  =      PSCMDU+PSPRT0	   ;<01>   USER MODE,
+USRPSW  =      USRPSW+PSPMDU       ;   REGISTER SET 1,
+                                   ;   PROCESSOR PRIORITY 0
+;*
+;*
+        .SBTTL FLOATING POINT PROCESSOR DEFINITIONS
+
+;****  FLOATING POINT UNIT STATUS REGISTER FORMAT  *****
+;*
+;*
+;*             BIT DEFINITIONS FOR THE FPS REGISTER
+;*
+FPSFER  =      ^B1000000000000000;     FLOATING POINT ERROR
+FPSFID  =      ^B0100000000000000;     FPP INTERRUPTS DISABLED
+;*      =      ^B0011000000000000;     2 BITS - NOT USED
+FPSIUV  =      ^B0000100000000000;     UNDEF. VARIABLE INT. ENABLED
+FPSFIU  =      ^B0000010000000000;     UNDERFLOW INT. ENABLED
+FPSFIV  =      ^B0000001000000000;     OVERFLOW INT. ENABLED
+FPSFIC  =      ^B0000000100000000;     INTEGER CONVERSION INT. ENABLED
+FPSFD   =      ^B0000000010000000;     DOUBLE PRECISION MODE
+FPSFL   =      ^B0000000001000000;     LONG INTEGER MODE
+FPSFT   =      ^B0000000000100000;     TRUNCATE MODE
+FPSFMM  =      ^B0000000000010000;     MAINTENANCE MODE
+FPSFN   =      ^B0000000000001000;     RESULT NEGATIVE
+FPSFZ   =      ^B0000000000000100;     RESULT ZERO
+FPSFV   =      ^B0000000000000010;     RESULT OVERFLOW
+FPSFC   =      ^B0000000000000001;     CONVERSION CARRY
+;*
+;*             DEFINE THE INITIAL USER FLOATING POINT STATUS
+;*
+FSTAT0  =      FPSIUV+FPSFIU+FPSFIV+FPSFIC+FPSFD; UNDEF. VAR. INT.,
+                                                ; UNDERFLOW INT.,
+                                                ; OVERFLOW INT.,
+                                                ; INTEGER CONV INT.,
+                                                ; DOUBLE PRECISION,
+                                                ; SHORT INTEGER,
+                                                ; ROUNDED ARITHMETIC
+;*
+;*             CODE DEFINITIONS FOR THE FEC REGISTER
+;*
+FECOPC  =      2.;                     OPCODE ERROR
+FECDVZ  =      4.;                     DIVIDE CHECK
+FECICE  =      6.;                     INTEGER CONVERSION ERROR
+FECOVF  =      8.;                     OVERFLOW
+FECUNF  =      10.;                    UNDERFLOW
+FECUDV  =      12.;                    UNDEFINED VARIABLE
+FECMTT  =      14.;                    MAINTENANCE TRAP
+;*
+;*
+        .SBTTL TM11 TAPE DEFINITIONS
+
+;****  TM11 TAPE HARDWARE REGISTERS  *****
+;*
+;*             ADDRESSES OF THE HARDWARE REGISTERS
+;*
+MTS     =      172520;                 STATUS REGISTER
+MTC     =      172522;                 COMMAND REGISTER
+MTBRC   =      172524;                 BYTE/RECORD COUNTER
+MTCMA   =      172526;                 CURRENT MEMORY ADDRESS REGISTER
+MTD     =      172530;                 DATA BUFFER
+;*
+;*             BIT DEFINITIONS FOR THE STATUS REGISTER
+;*
+MTSTUR  =      ^B0000000000000001;     TAPE UNIT READY
+MTSRWS  =      ^B0000000000000010;     REWIND STATUS
+MTSWRL  =      ^B0000000000000100;     WRITE LOCK (FILE PROTECT)
+MTSDWN  =      ^B0000000000001000;     TAPE SETTLE DOWN
+MTS7CH  =      ^B0000000000010000;     SEVEN CHANNEL
+MTSBOT  =      ^B0000000000100000;     BEGINNING OF TAPE
+MTSELR  =      ^B0000000001000000;     SELECT REMOTE
+MTSNXM  =      ^B0000000010000000;     NONEXISTENT MEMORY
+MTSBTE  =      ^B0000000100000000;     BAD TAPE ERROR
+MTSRLE  =      ^B0000001000000000;     RECORD LENGTH ERROR
+MTSEOT  =      ^B0000010000000000;     END OF TAPE
+MTSBGL  =      ^B0000100000000000;     BUS GRANT LATE
+MTSPAE  =      ^B0001000000000000;     PARITY ERROR
+MTSCRE  =      ^B0010000000000000;     CYCLIC REDUNDANCY ERROR
+MTSEOF  =      ^B0100000000000000;     END OF FILE
+MTSILC  =      ^B1000000000000000;     ILLEGAL COMMAND
+;*
+;*             BIT AND FIELD DEFINITIONS FOR THE COMMAND REGISTER
+;*
+;*      FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS:
+;*
+MTCGO   =      ^B0000000000000001;     1 BIT  - BEGIN OPERATION
+MTCFUN  =      ^B0000000000000010;     3 BITS - FUNCTION FIELD
+MTCADD  =      ^B0000000000010000;     2 BITS - ADDRESS EXTENSION
+MTCIEN  =      ^B0000000001000000;     1 BIT  - INTERRUPT ENABLE
+MTCCUR  =      ^B0000000010000000;     1 BIT  - CU READY
+MTCUS   =      ^B0000000100000000;     3 BITS - UNIT SELECT
+MTCPEV  =      ^B0000100000000000;     1 BIT  - LATERAL PARITY (EVEN)
+MTCPCL  =      ^B0001000000000000;     1 BIT  - POWER CLEAR
+MTCDEN  =      ^B0010000000000000;     2 BITS - DENSITY
+MTCERR  =      ^B1000000000000000;     1 BIT  - HARD ERROR
+;*
+;*      FIELD VALUE DEFINITIONS FOR MTCFUN ARE:__
+;*
+MTFOFL  =      ^B000;                  OFFLINE
+MTFRD   =      ^B001;                  READ
+MTFWR   =      ^B010;                  WRITE
+MTFWFM  =      ^B011;                  WRITE EOF
+MTFSPF  =      ^B100;                  SPACE FORWARD
+MTFSPR  =      ^B101;                  SPACE REVERSE
+MTFWGP  =      ^B110;                  WRITE GAP
+MTFREW  =      ^B111;                  REWIND
+;*
+;*      FIELD VALUE DEFINITIONS FOR MTCDEN ARE:__
+;*
+MDS200  =      ^B00;                   SEVEN TRACK, 200 BPI
+MDS556  =      ^B01;                   SEVEN TRACK, 556 BPI
+MDS800  =      ^B10;                   SEVEN TRACK, 800 BPI
+MDN800  =      ^B11;                   NINE TRACK, 800 BPI
+;*
+;*
+        .SBTTL RK11 DISK DEFINITIONS
+
+;****  RK11 HARDWARE REGISTERS
+;*
+;*             ADDRESSES OF THE HARDWARE REGISTERS
+;*
+RKDS    =      177400;                 DRIVE STATUS REGISTER
+RKER    =      177402;                 ERROR REGISTER
+RKCS    =      177404;                 CONTROL STATUS REGISTER
+RKWC    =      177406;                 WORD COUNT REGISTER
+RKBA    =      177410;                 CURRENT BUS ADDRESS REGISTER
+RKDA    =      177412;                 DISK ADDRESS REGISTER
+RKDB    =      177416;                 DATA BUFFER REGISTER
+;*
+;*             BIT AND FIELD DEFINITIONS FOR THE DRIVE STATUS REGISTER
+;*
+;*      FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS:
+;*
+RDSSC   =      ^B0000000000000001;     4 BITS - SECTOR COUNTER
+RDSCSA  =      ^B0000000000010000;     1 BIT  - (SECTOR) COUNTER=ADDR
+RDSWPS  =      ^B0000000000100000;     1 BIT  - WRITE PROTECT STATUS
+RDSRDY  =      ^B0000000001000000;     1 BIT  - READ/WRITE/SEEK READY
+RDSDRY  =      ^B0000000010000000;     1 BIT  - DRIVE READY
+RDSSOK  =      ^B0000000100000000;     1 BIT  - SECTOR COUNTER OK
+RDSSIN  =      ^B0000001000000000;     1 BIT  - SEEK INCOMPLETE
+RDSDRU  =      ^B0000010000000000;     1 BIT  - DRIVE UNSAFE
+RDRK05  =      ^B0000100000000000;     1 BIT  - RK05 DISK DRIVE
+RDSDPL  =      ^B0001000000000000;     1 BIT  - DRIVE POWER LOW
+RDSID   =      ^B0010000000000000;     3 BITS - DRIVE IDENTIFIER
+;*
+;*             BIT DEFINITIONS FOR THE ERROR REGISTER
+;*
+RERWCE  =      ^B0000000000000001;     WRITE CHECK ERROR (SOFT)
+RERCSE  =      ^B0000000000000010;     CHECKSUM ERROR (SOFT)
+;*      =      ^B0000000000011100;     3 BITS - NOT USED
+RERNXS  =      ^B0000000000100000;     NONEXISTENT SECTOR
+RERNXC  =      ^B0000000001000000;     NONEXISTENT CYLINDER
+RERNXD  =      ^B0000000010000000;     NONEXISTENT DISK
+RERTE   =      ^B0000000100000000;     TIMING ERROR
+RERDLT  =      ^B0000001000000000;     DATA LATE
+RERNXM  =      ^B0000010000000000;     NONEXISTENT MEMORY
+RERPGE  =      ^B0000100000000000;     PROGRAMMING ERROR
+RERSKE  =      ^B0001000000000000;     SEEK ERROR
+RERWLO  =      ^B0010000000000000;     WRITE LOCKOUT VIOLATION
+REROVR  =      ^B0100000000000000;     OVERRUN
+RERDRE  =      ^B1000000000000000;     DRIVE ERROR
+;*
+;*             BIT AND FIELD DEFINITIONS FOR CONTROL STATUS REGISTER
+;*
+;*      FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS
+;*
+RCSGO   =      ^B0000000000000001;     1 BIT  - INITIATE FUNCTION
+RCSFUN  =      ^B0000000000000010;     3 BITS - FUNCTION FIELD
+RCSMEX  =      ^B0000000000010000;     2 BITS - MEMORY EXTENSION
+RCSIDE  =      ^B0000000001000000;     1 BIT  - INTERRUPT ON DONE
+RCSRDY  =      ^B0000000010000000;     1 BIT  - CONTROL READY
+RCSSSE  =      ^B0000000100000000;     1 BIT  - STOP ON SOFT ERROR
+;*      =      ^B0000001000000000;     1 BIT  - NOT USED
+RCSFMT  =      ^B0000010000000000;     1 BIT  - FORMAT MODE
+RCSIBA  =      ^B0000100000000000;     1 BIT  - INHIBIT INCREMENT
+;*      =      ^B0001000000000000;     1 BIT  - NOT USED
+RCSSCP  =      ^B0010000000000000;     1 BIT  - SEARCH COMPLETE
+RCSHE   =      ^B0100000000000000;     1 BIT  - HARD ERROR
+RCSERR  =      ^B1000000000000000;     1 BIT  - ERROR (HARD OR SOFT)
+;*
+;*      FIELD VALUE DEFINITIONS FOR RCSFUN ARE:__
+;*
+RCFCRE  =      ^B000;                  CONTROL RESET
+RCFWR   =      ^B001;                  WRITE
+RCFRD   =      ^B010;                  READ
+RCFWRC  =      ^B011;                  WRITE CHECK
+RCFSK   =      ^B100;                  SEEK
+RCFRDC  =      ^B101;                  READ CHECK
+RCFDRE  =      ^B110;                  DRIVE RESET
+RCFWRL  =      ^B111;                  WRITE LOCK
+;*
+;*             BIT AND FIELD DEFINITIONS FOR DISK ADDRESS REGISTER
+;*
+;*      FIELDS ARE DECLARED BY GIVING THEIR RIGHTMOST BITS:
+;*
+RDASC   =      ^B0000000000000001;     4 BITS - SECTOR ADDRESS, 0..11
+RDASUR  =      ^B0000000000010000;     1 BIT  - SURFACE, 0..1
+RDACYL  =      ^B0000000000100000;     8 BITS - CYLINDER, 0..202
+RDADRS  =      ^B0010000000000000;     3 BITS - DRIVE SELECT, 0..7
+;*
+;*
+        .SBTTL LT33 TERMINAL DEFINITIONS
+
+;****  LT33 HARDWARE REGISTERS
+;*
+;*             ADDRESSES OF THE HARDWARE REGISTERS
+;*
+RCSR    =      177560;                 RECEIVER STATUS REGISTER
+RBUF    =      177562;                 RECEIVER BUFFER REGISTER
+XCSR    =      177564;                 TRANSMITTER STATUS REGISTER
+XBUF    =      177566;                 TRANSMITTER BUFFER REGISTER
+;*
+;*             BIT DEFINITIONS FOR THE STATUS REGISTERS
+;*
+;*      =      ^B1111000000000000;     4 BITS - NOT USED
+TSRBSY  =      ^B0000100000000000;     BUSY (RECEIVER ONLY)
+;*      =      ^B0000011100000000;     3 BITS - NOT USED
+TSRRDY  =      ^B0000000010000000;     READY
+TSRIDE  =      ^B0000000001000000;     INTERRUPT ENABLE
+;*      =      ^B0000000000111110;     5 BITS - NOT USED
+TSRGO   =      ^B0000000000000001;     START (RECEIVER ONLY)
+;*
+;*             THE 8-BIT ASCII BIT FOR THE RECEIVER BUFFER REGISTER
+;*
+ASCII8  =      ^B0000000010000000;     1 FOR 8-BIT, 0 FOR 7-BIT ASCII
+;*
+;*
+        .SBTTL LP11 PRINTER DEFINITIONS
+
+;****  LP11 HARDWARE REGISTERS
+;*
+;*             ADDRESSES OF THE HARDWARE REGISTERS
+;*
+LPS     =      177514;                 LINE PRINTER STATUS REGISTER
+LPB     =      177516;                 LINE PRINTER DATA BUFFER REGISTER
+;*
+;*             BIT DEFINITIONS FOR THE STATUS REGISTER
+;*
+;*      =      ^B0000000000111111;     6 BITS - NOT USED
+LPSIDE  =      ^B0000000001000000;     INTERRUPT ENABLE
+LPSRDY  =      ^B0000000010000000;     PRINTER READY
+;*      =      ^B0111111100000000;     7 BITS - NOT USED
+LPSERR  =      ^B1000000000000000;     ERROR
+;*
+;*
+        .SBTTL CD11 CARD READER DEFINITIONS
+
+;****  CD11 HARDWARE REGISTERS
+;*
+;*             ADDRESSES OF THE HARDWARE REGISTERS
+;*
+CDST    =      172460;                 STATUS AND CONTROL REGISTER
+CDCC    =      172462;                 COLUMN COUNT REGISTER
+CDBA    =      172464;                 CURRENT ADDRESS REGISTER
+CDDB    =      172466;                 DATA BUFFER REGISTER
+;*
+;*             BIT AND FIELD DEFINITIONS FOR THE STATUS AND CONTROL REG
+;*
+CDSERR  =      ^B1000000000000000;     ERROR
+CDSRDC  =      ^B0100000000000000;     READER CHECK
+CDSEOF  =      ^B0010000000000000;     END OF FILE
+CDSOFL  =      ^B0001000000000000;     OFF LINE
+CDSDER  =      ^B0000100000000000;     DATA ERROR
+CDSDTL  =      ^B0000010000000000;     DATA LATE
+CDSNXM  =      ^B0000001000000000;     NONEXISTENT MEMORY
+CDSPCL  =      ^B0000000100000000;     POWER CLEAR
+CDSRDY  =      ^B0000000010000000;     READY
+CDSIDE  =      ^B0000000001000000;     INTERRUPT ENABLE
+CDSMEX  =      ^B0000000000110000;     2 BITS - MEMORY EXTENSION
+CDSOLT  =      ^B0000000000001000;     ONLINE TRANSITION
+CDSHPC  =      ^B0000000000000100;     HOPPER CHECK
+CDSDPK  =      ^B0000000000000010;     DATA PACKING MODE
+CDSGO   =      ^B0000000000000001;     START READ
+;*
+;*
+        .SBTTL KERNEL TRAP VECTOR DEFINITIONS.
+
+;****  PRELIMINARY DEFINITIONS:  *****
+;*
+;*             MACRO TO SET A SINGLE TRAP VECTOR
+;*
+        .MACRO TVDEF TRPROC,TPSW
+        .WORD  TRPROC,TPSW
+        .ENDM  TVDEF
+;*
+;*             TRAP VECTOR AREA EXTENT DEFINITIONS
+;*
+TVABEG  =      004;                    START OF TRAP VECTOR AREA
+TVAEND  =      400;                    END OF TRAP VECTOR AREA
+TVECS   =      <TVAEND - TVABEG> / 4;  NUMBER OF TRAP VECTORS POSSIBLE
+;*
+;*             THE LOCATIONS OF RELEVANT TRAP VECTORS
+;*
+FETRAP  =      004;                    FATAL ERRORS:__
+                                       ;  ODD ADDRESS,
+                                       ;  FATAL STACK VIOLATION (RED),
+                                       ;  TIMEOUT (NXM),
+                                       ;  PARITY ERROR,
+                                       ;  WARNING STACK VIOLATION.
+IITRAP  =      010;                    ILLEGAL INSTRUCTIONS:__
+                                       ;  "JMP R",
+                                       ;  "JSR M,R",
+                                       ;  USER MODE "HALT",
+                                       ;  RESERVED OPCODES:__
+                                       ;    000007 - 000077
+                                       ;    000210 - 000227
+                                       ;    007000 - 007777
+                                       ;    075000 - 076777
+                                       ;    106400 - 107777
+				       ;<01> AND FLOATING POINT IF NO FPU!!
+TBTRAP  =      014;                    T-BIT TRAP (NOT USED)
+IOTRAP  =      020;                    IOT TRAP (KERNEL CALL)
+PFTRAP  =      024;                    POWER FAILURE
+EMTRAP  =      030;                    EMULATOR TRAP (NOT USED)
+TRTRAP  =      034;                    TRAP INSTRUCTION (USED BY INTER-
+                                       ;   PRETER TRACE)
+
+UNITNO  =      040		;<01>  UNIT NUMBER FOR RK05 DISK (RKDA IMAGE)
+RESTRT  =      042		;<01>  PLACE TO RESTART AFTER CRASH
+
+TITRAP  =      060;                    CONSOLE TTY (LT33) INPUT INTRPT.
+TOTRAP  =      064;                    CONSOLE TTY (LT33) OUTPUT INTRPT.
+CLTRAP  =      100;                    CLOCK (KW11-L) INTERRUPT
+LPTRAP  =      200;                    LINE PRINTER (LPXX) INTERRUPT
+RKTRAP  =      220;                    DISK (RK11) INTERRUPT
+TMTRAP  =      224;                    MAG TAPE (TM11) INTERRUPT
+CDTRAP  =      230;                    CARD READER (CD11) INTERRUPT
+PITRAP  =      240;                    PROGRAMMING INTERRUPT REQUEST
+                                       ;  (NOT USED)
+FPTRAP  =      244;                    FLOATING POINT EXCEPTION
+SGTRAP  =      250;                    SEGMENT VIOLATION
+                                       ;  (INDICATES SYSTEM ERROR)
+;****  SET THE TRAP VECTORS  *****
+;*
+;*
+;
+;<01> ****** W A R N I N G ! ! ! ! ! ! ! THE AUTOLOAD PROGRAM CHECKS TO SEE
+;*     				         IF LOCATION 0 IS A 137!!!!!!
+;*
+ZERO:   JMP   @#$KNL0;<01>             JUMP TO INITIALIZATION.  THESE
+;*                                     TWO WORDS ARE RESERVED FOR USE
+;*                                     BY THE MACHINE IN THE RARE CASE
+;*                                     WHEN POWER FAILURE PREVENTS THE
+;*                                     COMPLETION OF A FATAL STACK
+;*                                     VIOLATION TRAP.
+;*
+;*             FILL TRAP VECTOR AREA WITH ILLEGAL TRAPS TO LABEL XXXINT
+;*             DEFINED BELOW.  THE NEW PSW IS USED TO TRANSMIT THE TRAP
+;*             VECTOR ADDRESS TO THE COMMON INTERCEPTOR, XXXINT.
+;*
+        .REPT  TVECS
+        TVDEF  XXXINT,.-2;             UNEXPECTED CALL;
+        .ENDR
+;*
+;*             PLANT THE RELEVANT TRAP VECTORS
+;*
+;*      BECAUSE THE ASSEMBLY IS RELOCATABLE, THE FOLLOWING
+;*      TRAP VECTORS MUST BE MADE RELATIVE TO
+;*      RELOCATABLE ZERO.
+;*
+      . = ZERO+FETRAP          ;FATAL ERROR TRAP
+        TVDEF  FEINT,KNLPSW
+
+      . = ZERO+IITRAP          ;<01> ON 11/34 TRAPS COME HERE
+	TVDEF  FEINT,KNLPSW    ;<01> HANDLE AS IF TRAPPED TO 4
+
+      . = ZERO+TBTRAP          ;T-BIT TRAP
+        TVDEF  TBTINT,KNLPSW
+      . = ZERO+IOTRAP          ;KERNELCALL
+        TVDEF  KNCALL,KNLPSW
+
+	.IF	NDF,F$PU       ;<01>
+      . = ZERO+EMTRAP	       ;<01> USED BY GETPSW MACRO
+	TVDEF  EMTPRO,KNLPSW   ;<01> RETURN PSW IN R0
+	.ENDC		       ;<01>
+
+      . = ZERO+UNITNO	       ;<01> DUMMY THIS WORD
+	.WORD	0	       ;<01> FOR RE-BOOT PURPOSES
+      . = ZERO+RESTRT	       ;<01> RESTART KINDNESS
+	JMP	@#$RVM0	       ;<01> CALLS SYSTEM INIT ROUTINE
+
+      . = ZERO+TITRAP          ;LT33TERMINAL.READINTERRUPT
+        TVDEF  LTIN32,KNLPSW
+      . = ZERO+TOTRAP          ;LT33TERMINAL.WRITEINTERRUPT
+        TVDEF  LTOU32,KNLPSW
+      . = ZERO+CLTRAP          ;CLOCK INTERRUPT
+        TVDEF  CLKINT,KNLPSW
+      . = ZERO+LPTRAP          ;LPXXPRINTER.INTERRUPT
+        TVDEF  LPIN32,KNLPSW
+      . = ZERO+RKTRAP          ;RK11DISK.INTERRUPT
+        TVDEF  RKIN32,KNLPSW
+      . = ZERO+TMTRAP          ;TM11TAPE.INTERRUPT
+        TVDEF  TMIN32,KNLPSW
+      . = ZERO+CDTRAP          ;CD11CARDREADER.INTERRUPT
+        TVDEF  CDIN32,KNLPSW
+      . = ZERO+FPTRAP          ;REAL INTERRUPT
+        TVDEF  FPPINT,KNLPSW
+;*
+;*             END THE TRAP VECTOR AREA
+;*
+      . = ZERO+TVAEND          ;MOVE TO END OF TRAP VECTORS
+;*
+;*
+        .SBTTL DEFINITIONS OF THE KERNEL STACK
+
+;****  KERNEL STACK DEFINITIONS  *****
+;*
+;*
+KSTKSZ  =      32.;                    SIZE OF THE STACK, WORDS.
+;*
+;*
+KSTTOP  =      .;                      ABSOLUTE STACK TOP
+        .BLKW  KSTKSZ;
+KSR0:	.WORD  0		;<01>  REGISTER STORAGE AREA
+KSR1:	.WORD  0		;<01>
+KSR2:	.WORD  0		;<01>
+KSR3:	.WORD  0		;<01>
+KSR4:	.WORD  0		;<01>
+KSR5:	.WORD  0		;<01>
+KSOPC:	.WORD  0		;<01>  PC
+KSOPSW:	.WORD  0		;<01>  PSW
+KSTBOT  =      .;                      STACK BOTTOM
+        .SBTTL DEFINE PRIMITIVE DATA TYPES
+
+;****  LENGTHS OF THE PASCAL PRIMITIVE DATA TYPES  *****
+;*
+;*
+.INTEGER=      2.;                     BYTES
+;*
+;*
+.REAL   =      8.;                     BYTES
+;*
+;*
+.BOOLEAN=      2.;                     BYTES
+;*
+;*
+.CHAR   =      2.;                     BYTES
+;*
+;*
+.ADDRESS=      2.;                     BYTES
+;*
+;***********************************************************************
+;*
+;*      ANTICIPATE SOME KERNEL DATATYPE LENGTHS
+;*
+;*
+.TIME   =      4.;                     BYTES
+;*
+;*
+.GATE   =      6.;                     BYTES
+;*
+;*
+.QUEUETY=      4.;                     BYTES
+;*
+;*
+.HEADTYP=      36.;                    BYTES
+;*
+;*
+.REGTYPE=      36.;                    BYTES
+;*
+;*
+.MAPTYPE=      16.;                    BYTES
+;*
+;***********************************************************************
+;*
+;*      MACROS TO CHECK DATATYPE LENGTHS
+;*
+;*
+        .MACRO GENERR A,B,C,D,E
+        .ERROR A''B''C''D''E
+        .ENDM
+        .MACRO CHKDTL SYM
+      $ =      $ - SYM
+        .IF NE $ - .'SYM
+        GENERR $,<;>,<REDEFINE ".>,SYM,<", ABOVE.>
+        .ENDC
+        .ENDM
+;*
+;*
+        .SBTTL DEBUGGING FACILITIES
+
+;****  DEFINITIONS OF DEBUGGING SWITCHES AND MACRO'S  *****
+;*
+;*      DEFINE THE DEBUGGING STATE:
+;*
+;*             NORMALLY ALL OF THE SWITCHES, BELOW, WILL HAVE THE
+;*             VALUE 0.
+;*
+$.DBPS  =      0;                   1: PRINT THE KERNEL STATE
+$.DBNC  =      0;                   1: NO CLOCK INTERRUPTS:  THE BELL
+                ;                      OF THE CONSOLE TELETYPE WILL
+                ;                      SIMULATE A CLOCK INTERRUPT.
+$.DBST  =      0;                   1: TYPE SERVICE TRACE
+$.DBCD  =      0;                   1: INCLUDE THE CORE DUMP FACILITY
+$.DBTA  =      0;                   1: LOAD OPERATING SYSTEM FROM TAPE 0
+$.DBLT  =      0;                   1: DO NOT REWIND THE SYSTEM TAPE
+$.DBVC  =      0;                   1: VERIFY PRELIMINARY CORE CLEARING
+$.DBIT  =      0;                   1: INCLUDE INTERPRETER TRACE
+;*
+;*      MACRO TO TERMINATE KERNEL ERROR PROCESSING
+;*
+        .MACRO SYSERR	TEXT		;<01> A LITTLE MORE HELPFUL
+        .IF NE $.DBCD
+        JMP    $.DBDC
+        .ENDC
+        .IF EQ $.DBCD
+	JSR	R0,$SERR
+	.ASCII	\TEXT\<200>
+	.EVEN
+        .ENDC
+        .ENDM  SYSERR
+;*
+;*      MACRO TO SET 'JMP DUMP' IN LOCATION 0
+;*
+        .MACRO SETDMP
+     $$ =      ZERO
+        .IF NE $.DBCD
+     $$ =      $.DBDC
+        .ENDC
+        MOV    #<$$-4>,ZERO+2
+        .ENDM  SETDMP
+;*
+;*      MACRO TO VERIFY CORE CONTENTS
+;*
+        .MACRO VERCOR
+        .IF NE $.DBVC
+        .IF NE $.DBCD
+        JSR    PC,$.DBDC
+        .ENDC
+        .IF EQ $.DBCD
+        JSR    PC,$.DBCV
+        .ENDC
+        .ENDC
+        .ENDM  VERCOR
+;*
+;*      MACRO TO PRINT KERNEL STATE
+;*
+        .MACRO KNSTAT
+        .IF NE $.DBPS
+        JSR    PC,$.DBSP
+        .ENDC
+        .ENDM  KNSTAT
+;*
+;*      MACRO TO TYPE CURRENT RUNNING PROCESS
+;*
+        .MACRO KNSERV
+        .IF NE $.DBST
+        JSR    PC,$.DBTS
+        .ENDC
+        .ENDM  KNSERV
+;*
+;*      MACRO TO TRACE GET AND PUT OPERATIONS ON PROCESS QUEUES
+;*
+        .MACRO QTRACE OP
+        .IF NE $.DBST
+        .IF IDN OP,GET
+        JSR    PC,$.DBTG
+        .ENDC
+        .IF IDN OP,PUT
+        JSR    PC,$.DBTP
+        .ENDC
+        .ENDC
+        .ENDM  QTRACE
+;*
+;*      MACRO TO SIMULATE CLOCK INTERRUPT BY THE TELETYPE BELL KEY
+;*
+        .MACRO BLTICK
+        .IF NE $.DBNC
+     $$ =      CLOCK8
+        .ENDC
+        .ENDM  BLTICK
+;*
+;*
+;****  PROCEDURES TO TYPE SERVICE TRACES  *****
+;*
+;*
+        .IF NE $.DBST
+;*
+;*      TYPE CURRENT RUNNING PROCESS
+;*
+$.DBTS: MOV    #1$,$.DB00
+        MOV    USER99,$.DB01
+        BR     $.DB02
+1$:     .ASCIZ <13.><10.>/SERVICE/
+        .EVEN
+;*
+;*      TYPE PROCESS DEPARTURES
+;*
+$.DBTG: MOV    #1$,$.DB00
+        MOV    GET4R,$.DB01
+        BR     $.DB02
+1$:     .ASCIZ <13.><10.>/DEPARTURE/
+        .EVEN
+;*
+;*      TYPE PROCESS ARRIVALS
+;*
+$.DBTP: MOV    #1$,$.DB00
+        MOV    NEWEL4,$.DB01
+        BR     $.DB02
+1$:     .ASCIZ <13.><10.>/ARRIVAL/
+        .EVEN
+;*
+;*
+$.DB00: .WORD  0
+$.DB01: .WORD  0
+$.DB02: MOV    STAT28,$.DB31
+        MOV    OUTL28,$.DB32
+        MOV    ECHO28,$.DB33
+        MOV    $.DB00,TEXT33
+        JSR    PC,WRIT33
+        MOV    $.DB01,NN34
+        JSR    PC,WRIT34
+        MOV    $.DB31,STAT28
+        CMP    $.DB31,#WRIT28
+        BNE    2$
+        MOV    $.DB32,OUTL28
+        MOV    $.DB33,ECHO28
+        RTS    PC
+2$:     MOV    #1$,TOTRAP
+        BIS    #INEN28,WRST28
+        SPL    0
+        WAIT
+        SPL    7
+        RTS    PC
+1$:     MOV    #LTOU32,TOTRAP
+        RTI
+$.DB31: .WORD  0
+$.DB32: .WORD  0
+$.DB33: .WORD  0
+        .ENDC
+;*
+;*
+;****  PROCEDURES TO PRINT THE KERNEL STATE  *****
+;*
+;*
+        .IF NE $.DBPS+$.DBVC+$.DBIT
+$.DB03: .WORD  0                       ; PROCEDURE PRINT(VAR I:
+                                       ;                      INTEGER);
+$.DB04: MOV    #1$,R3                  ;
+        MOV    #6.,R4                  ;   CONVERT TO OCTAL;
+        MOV    #8.,R2                  ;
+        JSR    PC,$.DB05               ;
+        MOV    #5.,R4                  ;   CONVERT TO DECIMAL;
+        MOV    #10.,R2                 ;
+        JSR    PC,$.DB05               ;
+7$:     TST    LPS                     ;   READY THE PRINTER;
+        BGE    2$                      ;
+        MOV    #3$,TEXT33              ;
+        JSR    PC,WRIT33               ;
+4$:     TST    LPS                     ;
+        BLT    4$                      ;
+2$:     TSTB   LPS                     ;
+        BGE    2$                      ;
+        MOV    #5$,R1                  ;
+6$:     MOVB   (R1)+,LPB               ;   PRINT INTEGER VALUES;
+        TSTB   LPS                     ;
+        BMI    6$                      ;
+        RTS    PC                      ; END;
+5$:     .BLKB  <1+5+1+6>
+1$:     .ASCII <10.>
+3$:     .ASCIZ <13.><10.>/READY THE PRINTER/
+        .EVEN
+$.DB29  =      5$
+$.DB30  =      7$
+$.DB05: MOV    @$.DB03,R1              ; CONVERT INTEGER TO ASCII;
+1$:     CLR    R0
+        DIV    R2,R0
+        ADD    #'0,R1
+        MOVB   R1,-(R3)
+        MOV    R0,R1
+        SOB    R4,1$
+        MOVB   #' ,-(R3)
+        RTS    PC
+$.DB27:                                ; PROCEDURE GRABPRINTER;
+        MOV    #12.,$.DB29             ;   NEW PAGE;
+        JSR    PC,$.DB30               ;
+        RTS    PC                      ; END;
+$.DB28:                                ; PROCEDURE RELEASEPRINTER;
+1$:     TSTB   LPS                     ;   RELEASE IT;
+        BGE    1$                      ;
+        TST    USER29                  ;
+        BNE    2$                      ;
+        MOV    #3$,LPTRAP              ;
+        BIS    #INEN29,STAT29          ;
+        SPL    0                       ;
+        WAIT                           ;
+        SPL    7                       ;
+2$:     RTS    PC                      ;
+3$:     MOV    #LPIN32,LPTRAP          ;
+        RTI                            ; END;
+;*
+;*
+$.DB06: .WORD  0                       ; PRINT AN ARRAY OF INTEGERS;
+$.DB07: .WORD  0
+$.DB08: MOV    $.DB06,$.DB03
+        MOV    $.DB07,R0
+1$:     MOV    R0,2$
+        JSR    PC,$.DB04
+        ADD    #2,$.DB03
+        MOV    2$,R0
+        SOB    R0,1$
+        RTS    PC
+2$:     .WORD  0
+        .ENDC
+        .IF NE $.DBPS
+;*
+;*      PRINT THE KERNEL STATUS:
+;*
+$.DB09:                                ; PROCEDURE PRINTNEWCORE;
+        MOV    #1$,$.DB03              ;   PRINT(BASEADDR);
+        JSR    PC,$.DB04               ;
+        MOV    #TOP16,$.DB03           ;   PRINT(TOP);
+        JSR    PC,$.DB04               ;
+        MOV    #FREE16,$.DB03          ;   PRINT(FREE);
+        JSR    PC,$.DB04               ;
+        RTS    PC                      ; END;
+1$:     .WORD  BASE16                  ;
+;*
+;*
+$.DB10: .WORD  0                       ; PROCEDURE PRINTQUEUE(Q);
+$.DB11: MOV    #$.DB10,$.DB03          ;   PRINT(@Q);
+        JSR    PC,$.DB04               ;
+        MOV    $.DB10,$.DB06           ;   PRINT IT;
+        MOV    #<.QUEUETYPE/2>,$.DB07  ;
+1$:     JSR    PC,$.DB08               ;
+        MOV    @$.DB06,$.DB06          ;
+        CMP    $.DB06,$.DB10           ;
+        BNE    1$                      ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB12: .WORD  0                       ; PROCEDURE PRINTTIME(T);
+$.DB13: MOV    $.DB12,$.DB06           ;   PRINT IT;
+        MOV    #<.TIME/2>,$.DB07       ;
+        JSR    PC,$.DB08               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB14:                                ; PROCEDURE PRINTCLOCK;
+        MOV    #NOW7,$.DB12            ;   PRINTTIME(NOW);
+        JSR    PC,$.DB13               ;
+        MOV    #NEXTT7,$.DB10          ;   PRINTQUEUE(NEXTTIME.AWAITING)
+        JSR    PC,$.DB11               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB15:                                ; PROCEDURE PRINTCORE;
+        MOV    #USER99,R1              ;   PRINT(HEADADDR DIV 64);
+        CLR    R0                      ;
+        DIV    #64.,R0                 ;
+        MOV    R0,1$                   ;
+        MOV    #1$,$.DB03              ;
+        JSR    PC,$.DB04               ;
+        MOV    #COREC9,$.DB03          ;   PRINT(CORECAPACITY);
+        JSR    PC,$.DB04               ;
+        MOV    #TOP9,$.DB03            ;   PRINT(TOP);
+        JSR    PC,$.DB04               ;
+        MOV    #FREE9,$.DB03           ;   PRINT(FREE);
+        JSR    PC,$.DB04               ;
+        RTS    PC                      ; END;
+1$:     .WORD  0                       ;
+;*
+;*
+$.DB16: .WORD  0                       ; PROCEDURE PRINTHEAD(H);
+$.DB17: MOV    $.DB16,$.DB06           ;   PRINT IT;
+        MOV    #<.HEADTYPE/2>,$.DB07   ;
+        JSR    PC,$.DB08               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB18: .WORD  0                       ; PROCEDURE PRINTREG(R);
+$.DB19: MOV    $.DB18,$.DB06           ;   PRINT THEM;
+        MOV    #<.REGTYPE/2>,$.DB07    ;
+        JSR    PC,$.DB08               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB20: .WORD  0                       ; PROCEDURE PRINTMAP(M);
+$.DB21: MOV    $.DB20,$.DB06           ;   PRINT IT;
+        MOV    #<.MAPTYPE/2>,$.DB07    ;
+        JSR    PC,$.DB08               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB22:                                ; PROCEDURE PRINTVIRTUAL;
+        MOV    #HARD10,$.DB20          ;   PRINTMAP(HARDWAREMAP);
+        JSR    PC,$.DB21               ;
+        MOV    #COMM10,$.DB03          ;   PRINT(COMMON);
+        JSR    PC,$.DB04               ;
+        MOV    #HEAP10,$.DB03          ;   PRINT(HEAPTOP);
+        JSR    PC,$.DB04               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB23: .WORD  0                       ; PROCEDURE PRINTPROCESS(P);
+$.DB24: MOV    #$.DB23,$.DB03          ;   PRINT(@P);
+        JSR    PC,$.DB04               ;
+        MOV    $.DB23,R0               ;   PRINTHEAD(P.HEAD);
+        ADD    #HEAD0,R0               ;
+        MOV    R0,$.DB16               ;
+        JSR    PC,$.DB17               ;
+        MOV    $.DB23,R0               ;   PRINTREG(P.REG);
+        ADD    #REG0,R0                ;
+        MOV    R0,$.DB18               ;
+        JSR    PC,$.DB19               ;
+        MOV    $.DB23,R0               ;   PRINTMAP(P.MAP);
+        ADD    #MAP0,R0                ;
+        MOV    R0,$.DB20               ;
+        JSR    PC,$.DB21               ;
+        RTS    PC                      ; END;
+;*
+;*
+$.DB25:                                ; PROCEDURE PRINTRUNNING;
+        MOV    USER99,$.DB23           ;   PRINTPROCESS(USER);
+        JSR    PC,$.DB24               ;
+        MOV    #HEAD99,$.DB16          ;   PRINTHEAD(HEAD);
+        JSR    PC,$.DB17               ;
+        MOV    #CONS99,$.DB03          ;   PRINT(CONST);
+        JSR    PC,$.DB04               ;
+        MOV    #PARA11,$.DB06          ;   PRINTPARAMS;
+        MOV    #MAX11,$.DB07           ;
+        JSR    PC,$.DB08               ;
+        MOV    #NEXT11,$.DB03          ;   PRINT(NEXTINDEX);
+        JSR    PC,$.DB04               ;
+        MOV    #PRID11,$.DB06          ;   PRINTPROCESSIDS;
+        MOV    #PROCS,$.DB07           ;
+        JSR    PC,$.DB08               ;
+        MOV    #1$,R0                  ;   PRINTREG(REG);
+        MOV    R0,$.DB18               ;
+        MOV    SP,R1                   ;
+        MOV    R0,SP                   ;
+        BIS    #PSREG1,PSW             ;
+        MOV    W,(SP)+                 ;
+        MOV    X,(SP)+                 ;
+        MOV    Y,(SP)+                 ;
+        MOV    Q,(SP)+                 ;
+        MOV    B,(SP)+                 ;
+        MOV    G,(SP)+                 ;
+        BIC    #PSREG1,PSW             ;
+        MOV    SP,R0                   ;
+        MOV    R1,SP                   ;
+        BIS    #PSPMDU,PSW             ;
+        MFPI   SP                      ;
+        MOV    (SP)+,(R0)+             ;
+        MOV    KSOPC,(R0)+             ;
+        MOV    KSOPSW,(R0)+            ;
+        STD    W,(R0)+                 ;
+        STD    X,(R0)+                 ;
+        STFPS  (R0)                    ;
+        JSR    PC,$.DB19               ;
+        RTS    PC                      ; END;
+1$:     .BLKB  .REGTYPE                ;
+;*
+;*
+$.DB26:                                ; PROCEDURE PRINTREADY;
+        MOV    #TOP12,$.DB10           ;   PRINTQUEUE(TOP);
+        JSR    PC,$.DB11               ;
+        MOV    #MIDD12,$.DB10          ;   PRINTQUEUE(MIDDLE);
+        JSR    PC,$.DB11               ;
+        MOV    #BOTT12,$.DB10          ;   PRINTQUEUE(BOTTOM);
+        JSR    PC,$.DB11               ;
+        MOV    #IDLI12,$.DB03          ;   PRINT(IDLING);
+        JSR    PC,$.DB04               ;
+        RTS    PC                      ; END;
+;*
+;*      PRINT THE KERNEL STATE:
+;*
+$.DBSP:                                ; PROCEDURE KNSTAT;
+        JSR    PC,$.DB27               ;   GRABPRINTER;
+        JSR    PC,$.DB09               ;   PRINTNEWCORE;
+        MOV    #PERIO6,$.DB03          ;   PRINT(TIMER.PERIOD);
+        JSR    PC,$.DB04               ;
+        JSR    PC,$.DB14               ;   PRINTCLOCK;
+        JSR    PC,$.DB15               ;   PRINTCORE;
+        JSR    PC,$.DB22               ;   PRINTVIRTUAL;
+        JSR    PC,$.DB25               ;   PRINTRUNNING;
+        JSR    PC,$.DB26               ;   PRINTREADY;
+        JSR    PC,$.DB28               ;   RELEASEPRINTER;
+        RTS    PC                      ; END;
+        .ENDC
+;*
+;*
+;****  CORE DUMP PROCEDURE  *****
+;*
+;*
+        .IF NE $.DBCD
+$.DBDC:
+        MOV    PC,R0
+        SYSERR
+        .ENDC
+;*
+;*
+;****  CORE VERIFICATION PROCEDURE  *****
+;*
+;*
+        .IF NE $.DBVC
+        .IF EQ $.DBCD
+$.DBCV:                                ; PROCEDURE VERIFYCORE;
+        MOV    KISAR+12.,R0            ;
+        MOV    #.PRBLK,R1              ;
+        SUB    #.SGSBK,R1              ;
+        MOV    R1,KISAR+12.            ;
+        MOV    #2$,FETRAP              ;
+1$:     TST    140000                  ;
+        BR     3$                      ;
+2$:     SUB    #.SGSBK,KISAR+12.       ;
+        ADD    #4,SP                   ;
+        BR     1$                      ;
+3$:     MOV    #FEINT,FETRAP           ;
+        MOV    KISAR+12.,6$            ;
+        ADD    #.SGSBK,6$              ;
+4$:     MOV    #<.SEGSB-2>,R1          ;
+10$:    TST    140000(R1)              ;
+        BNE    5$                      ;
+        SUB    #2,R1                   ;
+        BGE    10$                     ;
+        SUB    #.SGSBK,KISAR+12.       ;
+        BR     4$                      ;
+5$:     MOV    KISAR+12.,7$            ;
+        MOV    R1,8$                   ;
+        MOV    140000(R1),9$           ;
+        MOV    R0,KISAR+12.            ;
+        JSR    PC,$.DB27               ;   GRABPRINTER;
+        MOV    #6$,$.DB06              ;   PRINTRESULTS;
+        MOV    #4,$.DB07               ;
+        JSR    PC,$.DB08               ;
+        JSR    PC,$.DB28               ;   RELEASEPRINTER;
+        RTS    PC                      ; END;
+6$:     .WORD  0                       ;
+7$:     .WORD  0                       ;
+8$:     .WORD  0                       ;
+9$:     .WORD  0                       ;
+        .ENDC
+        .ENDC
+;****  PROCEDURE TO PRINT INTERPRETER TRACE  *****
+;*
+;*
+        .IF NE $.DBIT
+     $$ =      .
+      . =      TRTRAP
+        TVDEF  $.DBTI,KNLPSW
+      . =      $$
+;*
+;*
+$.DBTI:                                ; PROCEDURE PRINTTRACE(OPCODE, Q,
+                                       ;                      S, SMAX);
+        MOV    #10.,$.DB29             ;   PRINTNEWLINE;
+        JSR    PC,$.DB30               ;
+        MOV    #<HEAD99+INDEX1>,$.DB03 ;   PRINT(INDEX);
+        JSR    PC,$.DB04               ;
+     $$ =      HEAD99+PARAM1           ;   PRINT(OPCODE);
+        MOV    #$$,$.DB03              ;
+        JSR    PC,$.DB04               ;
+     $$ =      $$ + .INTEGER           ;   PRINT(Q);
+        MOV    #$$,$.DB03              ;
+        JSR    PC,$.DB04               ;
+     $$ =      $$ + .INTEGER           ;   PRINT(S);
+        MOV    #$$,$.DB03              ;
+        JSR    PC,$.DB04               ;
+1$:     MFPD   @$$                     ;   PRINTSTACK;
+        MOV    SP,$.DB03               ;
+        JSR    PC,$.DB04               ;
+        TST    (SP)+                   ;
+        CMP    $$,$$+.INTEGER          ;
+        BEQ    2$                      ;
+        ADD    #2.,$$                  ;
+        BR     1$                      ;
+2$:     RTI                            ; END;
+        .ENDC
+;*
+;*
+        .SBTTL FIRST LEVEL TRAP/INTERRUPT INTERCEPTORS
+
+;****  TRAPS AND INTERRUPTS WITH COMMON PREPROCESSING COME HERE  *****
+;*
+;*
+
+;*
+;*             FATAL ERROR TRAP:
+;*
+FEINT:	INTSRV			   ;<01> STACK THE REGS SO CAN TELL WHERE IT
+				   ;<01> CAME FROM!!
+	MOV    #FETRAP,R0          ;   R0 := TRAP VECTOR ADDRESS;
+        SYSERR	<TRAP TO 4/10>     ;<01>
+;*
+;*             T-BIT TRAP:
+;*
+TBTINT:	INTSRV			   ;<01> PRESERVE REGISTER CONTENTS
+	CMP    14(SP),#XXXIN0      ;<01> TRAP FROM XXXINT ?
+        BEQ    XXXIN1              ;   BRANCH IF SO;
+        MOV    #TBTRAP,R0          ;   R0 := TRAP VECTOR ADDRESS;
+        SYSERR	<BPT EXECUTION>	   ;<01>
+;*
+;*             UNEXPECTED CALL:
+;*
+XXXINT:	INTSRV			   ;<01> PRESERVE THE REGISTERS
+	MOV    PSW,XXXIN2          ;   R0 := TRAP OR INTERRUPT VECTOR
+XXXIN0: SPL    7                   ;         ADDRESS;  THIS CAUSES IT
+XXXIN1: MOV    XXXIN2,R0           ;         TO BE DISPLAYED AT THE
+        BIC    #^C<TVAEND-1>,R0    ;         COMPUTER CONSOLE.
+        SYSERR <UNKNOWN INTERRUPT> ;<01>
+XXXIN2: .WORD  0                   ;
+.SBTTL	SYSTEM ERROR HANDLER
+;
+;	THIS ENTIRE SECTION ADDED BY EDIT <01>
+;
+;
+;	THE FOLLOWING SECTION OF CODE IS USED TO DUMP OUT THE REGISTERS, PC,
+;	AND PSW OF THE PROCESS CAUSING A SYSTEM CRASH.  OBVIOUSLY, MORE STUFF
+;	COULD BE ADDED LATER (AND PROBABLY WILL).  THIS IS MUCH BETTER THAN
+;	A SIMPLE HALT!!!!!!!!!
+;
+;
+;
+;	LOCAL MACROS:
+;
+	.MACRO	PRINT	X	   ;PRINT ASCII STRING ON TERMINAL
+	.IF	NB,X
+	MOV	X,R0		   ;R0 -> ASCII
+	.ENDC
+	JSR	PC,PRINT	   ;CALL PRINT ROUTINE
+	.ENDM	PRINT
+
+	.MACRO	OCTAL	X,Y	   ;CONVERT TO OCTAL ASCII
+	.IF	NB,X
+	MOV	X,R0
+	.ENDC
+	.IF	NB,Y
+	MOV	Y,R1
+	.ENDC
+	JSR	PC,OCTAL	   ;CALL CONVERSION SUBROUTINE
+	.ENDM	OCTAL
+
+$SERR:
+	.ENABL	LSB
+	SPL	7		   ;UP PRIORITY IF NOT ALREADY
+	PRINT			   ;PRINT STRING ASSOCIATED WITH ERROR
+				   ;(CONTAINED IN SYSERR MACRO CALL)
+	PRINT	#HEADER		   ;PRINT OUT HEADINGS
+	MOV	#KSR0,R2	   ;R2 -> REGISTERS
+	MOV	#8.,R3		   ;R3 COUNTS
+1$:
+	OCTAL	(R2)+,#ONUM	   ;CONVERT A REGISTER TO ASCII
+	PRINT	#ONUM		   ;AND PRINT
+	DEC	R3		   ;COUNT
+	BNE	1$		   ;	    DOWN
+	PRINT	#NULL		   ;RETURN THE CARRIAGE
+	HALT			   ;NOW STOP!
+	BR	.-2		   ;DISALLOW CONTINUE
+;
+;	AT THIS POINT, COULD PROBABLY FORCE AN EXCEPTION CONDITION ON USER
+;	(IF TRAP CAME FROM USER STATE), AND CONTINUE SYSTEM EXECUTION.
+;
+;
+;	DATA:
+;
+HEADER:	.ASCII	<15><12>\SYSTEM FAILURE\<15><12>
+	.ASCII	\  R0     R1     R2     R3     R4     R5     PC     PSW\
+NULL:	.BYTE	0
+ONUM:	.ASCII	\XXXXXX \<200>
+	.EVEN
+	.DSABL	LSB
+.SBTTL	SYSERR SUBROUTINES
+;
+;
+;	THE FOLLOWING SUBROUTINE PRINTS THE ASCII STRING POINTED TO BY R0
+;	ON THE CONSOLE TERMINAL.  THE STRING IS TERMINATED IN TWO WAYS:
+;
+;		1). A NULL CHARACTER, WHICH CAUSES A CR/LF SEQUENCE TO BE
+;		    APPENDED TO THE END OF THE STRING.
+;
+;		2). A NEGATIVE BYTE (PARITY BIT SET), WHICH CAUSES THE STRING
+;		    TO BE OUTPUT "AS IS".
+;
+PRINT:
+	TSTB	XCSR			;WAIT ON
+	BPL	PRINT			;	   DONE
+	MOVB	(R0)+,XBUF		;OUTPUT NEXT CHARACTER
+	BGT	PRINT			;GT => MORE CHARACTERS IN STRING
+	BMI	RETURN			;MI => DO NO MORE
+	MOV	#CRLF,R0		;R0 -> CR,LF,-1 SEQUENCE
+	BR	PRINT			;PRINT THIS
+RETURN:	RTS	PC			;RETURN TO CALLER
+CRLF:	.BYTE	15,12,-1		;CR,LF SEQUENCE
+	.EVEN				;ALIGNMENT
+;
+;
+;	THE OCTAL SUBROUTINE CONVERTS THE NUMBER IN R0 TO OCTAL ASCII
+;	(6 DIGITS) IN THE AREA POINTED TO BY R1.  THIS CODE COURTESY THE
+;	AUTHORS OF THE RT-11 OPERATING SYSTEM.
+;
+;
+OCTAL:
+	MOV	#30,R4			;SEED DIGIT
+	SEC				;USED AS END FLAG
+1$:
+	ROL	R0			;SHIFT OUT TOP BIT
+	ROLB	R4			;NOTE R4 NOW = ASCII DIGIT
+	MOVB	R4,(R1)+		;PUT IN BUFFER
+
+	MOV	#206,R4			;SEED NEXT DIGIT
+2$:
+	ASL	R0			;SHIFT OUT NEXT BIT
+	BEQ	3$			;EQ => DONE
+	ROLB	R4			;SHIFT INTO DESTINATION
+	BCS	2$			;CS => 1ST TIME AROUND
+	BR	1$			;ELSE, DONE
+3$:
+	RTS	PC			;RETURN TO CALLER
+.SBTTL	CLOCK INTERRUPT SERVICE
+;*
+;*             KW11-L LINE CLOCK INTERRUPT:
+;*
+CLKINT:	BIS	#LKSINE,@#LKS	   ;<01> RE-ENABLE INTERRUPT
+	INTSRV	CLOCK8		   ;<01> GOTO CLOCK 8 TO SERVICE INTRPT 
+;*
+;*             FLOATING POINT PROCESSOR INTERRUPT:
+;*
+FPPINT: INTSRV REAL11              ;<01> REALINTERRUPT;
+.SBTTL	KERNEL CALL INTERRUPT SERVICE
+;*
+;*             KERNEL CALL:
+;*
+KNCALL:	INTSRV			   ;<01> SERVICE INTERRUPT IMMEDIATELY
+	JSR    PC,@<HEAD99+OPCOD1> ; CASE RUNNING.HEAD.OPCODE OF
+                                   ;    0: WAIT;
+                                   ;    2: REALTIME;
+                                   ;    4: SYSTEMERROR;
+                                   ;    6: INITPROCESS;
+                                   ;    8: ENDPROCESS;
+                                   ;   10: STOPJOB;
+                                   ;   12: ENTER;
+                                   ;   14: LEAVE;
+                                   ;   16: DELAY;
+                                   ;   18: CONTINUE;
+                                   ;   20: INITGATE;
+                                   ;   22: IO;
+                                   ; END;
+KNEXIT: TST    USER99              ; IF RUNNING.USER = NIL THEN
+        BNE    1$                  ;
+        JSR    PC,SELE12           ;   READY.SELECT;
+1$:     KNSTAT                     ;
+        KNSERV                     ;
+	POP	<R0,R1,R2,R3,R4,R5> ;<01> DONE, RESTORE REGISTERS
+        RTI                        ; KERNELEXIT;
+;*
+;*
+        .SBTTL INITIALIZE THE VIRTUAL MACHINE
+
+;****  INITIALIZE THE KERNEL AND LOAD THE SYSTEM PROGRAM
+;*
+;*
+;***********************************************************************
+;*                                 ;
+;*                                 ;
+;*                                 ; CONST PROGRAMSTART = ...;
+;*                                 ;       KERNELLENGTH = ...;
+;*                                 ;
+;*                                 ; TYPE STACKINDEX = 0..31;
+;*                                 ;      MAPINDEX = 0..7;
+;*                                 ;      DISKBLOCK = 0..4799;
+;*                                 ;
+;*      =      SP                  ; VAR STACKPOINTER: STACKINDEX;
+$SDA0:  .WORD  24.                 ;     SYSTEMBLOCK: DISKBLOCK INIT 40;
+;*      =      $.DBTA              ;     SYSTEMTAPE: BOOLEAN;
+;*                                 ;     KERNELSTACK: ARRAY
+;*                                 ;          (.STACKINDEX.) OF INTEGER;
+;*      =      SSR0                ;     ADDRESSMAPPING: BOOLEAN;
+;*      =      KISDR               ;     KERNELSDRS: ARRAY (.MAPINDEX.)
+;*                                 ;                         OF INTEGER;
+;*      =      KISAR               ;     KERNELMAP: ARRAY (.MAPINDEX.)
+;*                                 ;                         OF INTEGER;
+;*      =      COREC9              ;     CORECAPACITY: INTEGER;
+;*                                 ;
+;*                                 ;
+;*                                 ; PROCEDURE LOADVIRTUALMACHINE;
+;*                                 ;
+;*      =      .SGSBK              ; CONST BLOCKINCR = 128;
+;*      =      .PRBLK              ;       REGISTERBLOCK = 3968;
+;*                                 ;       DISK0 = 0;
+;*      =      KSDR                ;       SEGMENTDESCRIPTOR = ...
+;*                                 ;    "8K BYTES, UPWARDS, READ/WRITE";
+;*                                 ;
+;*      =      RKCS, RKER          ; VAR ERROR: BOOLEAN;
+;*      =      R0                  ;     I: MAPINDEX;
+;*                                 ;
+;*                                 ; BEGIN
+;* THIS PROCEDURE IS EXECUTED FOR  ;
+;* THE FIRST TIME BY ACTION OF A   ;
+;* HUMAN OPERATOR AT THE COMPUTER  ;
+;* CONSOLE, WHO PERFORMS A STANDARD;
+;* INITIAL PROGRAM LOAD FROM DISK  ;
+;* DRIVE 0.  WHEN THIS HAS BEEN    ;
+;* DONE, THE CODE WHICH IMPLEMENTS ;
+;* THE VIRTUAL MACHINE (KERNEL +   ;
+;* INTERPRETER) WILL HAVE BEEN READ;
+;* INTO CORE STARTING AT PHYSICAL  ;
+;* ADDRESS 000000.  CONTROL IS     ;
+;* PASSED TO "$KNL0" VIA A 'JMP'   ;
+;* INSTRUCTION SITUATED AT 000000. ;
+;*                                 ;
+;* SUBSEQUENTLY, THIS PROCEDURE MAY;
+;* BE RE-EXECUTED BY JUMPING TO THE;
+;* LABEL "$RVM0", BELOW, AFTER     ;
+;* HAVING MOVED THE STARTING PAGE  ;
+;* NUMBER OF THE NEW OPERATING SYS-;
+;* TEM INTO "$SDA0", ABOVE.        ;
+;*                                 ;
+;*<01> ALSO BY LOADING ADDR 42 AND ;
+;*<01> START FROM FRONT PANEL (NICE;
+;*<01> FOR DEBUGGING CHANGES THAT  ;
+;*<01> DON'T QUITE WORK!)          ;
+;*                                 ;
+$RVM0:  RESET                      ;   RESETUNIBUS;
+      $ =      <INTEND-ZERO+511.>  ;   READ(DISK0, 0, 1, KERNELLENGTH,
+      $ =      <$/512.> * 256.     ;                             ERROR);
+        MOV    #<-$>,RKWC          ;
+	MOV    #1,RKDA		   ;<01> THIS VERSION STARTS @ BLK 1
+	BIS    UNITNO,RKDA	   ;<01> AND FROM ANY UNIT
+        MOV    $SDA0,R0            ;
+	MOV    UNITNO,R1	   ;<01> SAVE THIS ALSO
+      $ =      <RCSFUN*RCFRD>+RCSGO;
+        MOV    #$,RKCS             ;
+1$:     TSTB   RKCS                ;
+        BGE    1$                  ;
+        MOV    R0,$SDA0            ;
+	MOV    R1,UNITNO	   ;<01> REPLACE UNIT NUMBER
+                                   ;
+                                   ;
+$KNL0:  SPL    7                   ;   EXCLUDEINTERRUPTS;
+        SETDMP                     ;
+        MOV    #KSR0,SP            ;<01> STACKPOINTER := 1; "THIS RESERVES
+                                   ;     8 STACK ENTRIES WHICH WILL
+                                   ;     BE SUBSEQUENTLY FILLED WITH THE
+                                   ;     STATUS, RETURN, & REGISTERS
+				   ;     OF THE INITIAL PROCESS."
+
+        MOV    #8.,R0              ;   FOR I := 0 TO 7 DO
+        CLR    R1                  ;
+        MOV    #KISDR,R2           ;
+        MOV    #KISAR,R3           ;   BEGIN
+1$:     MOV    #KSDR,(R2)+         ;     KERNELSDRS(.I.) :=
+                                   ;                  SEGMENTDESCRIPTOR;
+        MOV    R1,(R3)+            ;     KERNELMAP(.I.) :=
+        ADD    #.SGSBK,R1          ;                      I * BLOCKINCR;
+        SOB    R0,1$               ;   END;
+        MOV    #.PRBLK,-(R3)       ;   KERNELMAP(.7.) := REGISTERBLOCK;
+                                   ;
+        TST    RKCS                ;   IF ERROR THEN
+        BGE    2$                  ;
+        CMP    #RERNXM,RKER        ;
+        BEQ    2$                  ;
+3$:     TSTB   XCSR                ;   BEGIN
+        BGE    3$                  ;     TYPE('(:13:)(:10:)');
+        MOV    #4$,R0              ;     TYPE('KERNEL LOAD ERROR');
+7$:     TSTB   (R0)                ;     TYPE('(:13:)(:10:)');
+        BEQ    5$                  ;
+        MOVB   (R0)+,XBUF          ;
+6$:     TSTB   XCSR                ;
+        BGE    6$                  ;
+        BR     7$                  ;
+4$:     .ASCII <13.><10.>          ;
+        .ASCII /KERNEL LOAD ERROR/ ;
+        .ASCIZ <13.><10.>          ;
+        .EVEN                      ;
+5$:     HALT                       ;     HALT;
+        SYSERR <LOAD ABORTED>      ;   END;
+2$:                                ;
+                                   ; END;
+                                   ;
+                                   ;
+;*                                 ; PROCEDURE LOADSYSTEMPROGRAM;
+;*                                 ;
+;*                                 ;
+;*                                 ; CONST PROGRAMEND = ...;
+;*                                 ;       ENDOFCORE = ...;
+;*                                 ;
+;*                                 ; TYPE PAGE = ARRAY (.1..256.) OF
+;*                                 ;                            INTEGER;
+;*                                 ;      SEGMENTINDEX = 1..4096;
+;*                                 ;      SEGMENT = ARRAY
+;*                                 ;        (.SEGMENTINDEX.) OF INTEGER;
+;*                                 ;
+;*      =      KISAR+12.           ; VAR SEGADDR: @SEGMENT;
+;*      =      R1                  ;     I: SEGMENTINDEX;
+;*      =      R2                  ;     SEGINDEX: SEGMENTINDEX;
+;*                                 ;
+$LSP0:                             ;
+;* IT IS EXPECTED THAT THE HUMAN   ; PROCEDURE LOADFROMTAPE;
+;* OPERATOR WILL MOUNT A TAPE REEL ;
+;* CONTAINING THE CODE OF THE OP-  ;
+;* ERATING SYSTEM ON THE (9-TRACK) ;
+;* TAPE DRIVE 0.                   ;
+;*                                 ;
+;*                                 ; CONST TAPE0 = 0;
+;*                                 ;
+;*      =      MTC                 ; VAR ERROR: BOOLEAN;
+;*      =      MTCMA               ;     ADDR: @PAGE;
+;*                                 ;
+        .IF NE $.DBTA              ; BEGIN
+     $R =      MDN800 * MTCDEN     ;   WHILE NOT MOUNTED(TAPE0) DO
+     $R =      $R + <MTCFUN*MTFREW>;   BEGIN
+        MOV    #$R,MTC             ;
+        BIT    #MTSELR,MTS         ;
+        BNE    1$                  ;
+        MOV    #12$,TEXT33         ;     TYPE('(:13:)(:10:)');
+        JSR    PC,WRIT33           ;     TYPE('MOUNT SYSTEM TAPE ');
+                                   ;     TYPE('ON DRIVE 0 AND THEN ');
+                                   ;     TYPE('PRESS "CONTINUE".');
+        HALT                       ;     HALT;
+        BR     $LSP0               ;
+12$:    .ASCII <13.><10.>          ;
+        .ASCII /MOUNT SYSTEM TAPE /;
+        .ASCII /ON DRIVE 0 /       ;
+        .ASCII /AND THEN /         ;
+        .ASCIZ /PRESS "CONTINUE"./ ;
+        .EVEN                      ;
+1$:                                ;   END;
+        .IF EQ $.DBLT              ;
+        INC    MTC                 ;   REWIND(TAPE0, ERROR);
+2$:     TSTB   MTC                 ;
+        BGE    2$                  ;
+        TST    MTC                 ;   IF ERROR THEN
+        BGE    3$                  ;
+        CLR    HEAD99+OPLIN1       ;
+        MOV    #10$,RESU19         ;   KERNELERROR(
+        JSR    PC,KERN19           ;          'TAPE REWIND ERROR(:0:)');
+10$:    .ASCIZ /TAPE REWIND ERROR/ ;
+        .EVEN                      ;
+        .ENDC                      ;
+3$:     MOV    #INTEND,MTCMA       ;   ADDR := @PROGRAMSTART;
+        MOV    #-512.,MTBRC        ;   READ(TAPE0, ADDR, ERROR);
+     $R =      MDN800 * MTCDEN     ;
+     $R =      $R + MTCGO          ;
+     $R =      $R + <MTCFUN*MTFRD> ;
+        MOV    #$R,MTC             ;
+4$:     TSTB   MTC                 ;
+        BGE    4$                  ;
+        TST    MTC                 ;   IF ERROR THEN
+        BGE    5$                  ;
+9$:     CLR    HEAD99+OPLIN1       ;
+        MOV    #11$,RESU19         ;   KERNELERROR(
+        JSR    PC,KERN19           ;            'TAPE READ ERROR(:0:)');
+11$:    .ASCIZ /TAPE READ ERROR/   ;
+        .EVEN                      ;
+5$:     CLR    R0                  ;   FOR I := 2 TO
+        MOV    INTEND,R1           ;       (ADDR@(.1.) + 511) DIV 512 DO
+        ADD    #511.,R1            ;
+        ADC    R0                  ;
+        ASHC   #-9.,R0             ;
+        DEC    R1                  ;   BEGIN
+        BEQ    8$                  ;     ADDR := NEXTPAGE(ADDR);
+6$:     MOV    #-512.,MTBRC        ;     READ(TAPE0, ADDR, ERROR);
+        INC    MTC                 ;
+7$:     TSTB   MTC                 ;
+        BGE    7$                  ;
+        TST    MTC                 ;     IF ERROR THEN
+        BLT    9$                  ;     KERNELERROR(
+                                   ;            'TAPE READ ERROR(:0:)');
+        SOB    R1,6$               ;   END;
+8$:                                ; END "LOADFROMTAPE";
+        .ENDC                      ;
+                                   ;
+;*                                 ; PROCEDURE LOADFROMDISK(SYSTEM:
+;*      =      $SDA0               ;                         DISKBLOCK);
+;*                                 ;
+;*                                 ; CONST DISK0 = 0;
+;*                                 ;
+;*      =      RKCS                ; VAR ERROR: BOOLEAN;
+;*      =      RKBA                ;     ADDR: @PAGE;
+;*      =      R1                  ;     SYSTEMLENGTH: INTEGER;
+                                   ;
+        .IF EQ $.DBTA              ; BEGIN
+        MOV    #INTEND, RKBA       ;   ADDR := @PROGRAMSTART;
+        MOV    #<-256.>,RKWC       ;   READ(DISK0, ADDR, SYSTEM, 512,
+        MOV    $SDA0,R1            ;                             ERROR);
+        CLR    R0                  ;   ADDR := NEXTPAGE(ADDR);
+        DIV    #12.,R0             ;
+        ASH    #4,R0               ;
+        BIS    R1,R0               ;
+        MOV    R0,RKDA             ;
+	BIS    UNITNO,RKDA	   ;<01> SET PROPER UNIT NUMBER
+      $ =      <RCSFUN*RCFRD>+RCSGO;
+        MOV    #$,RKCS             ;
+1$:     TSTB   RKCS                ;
+        BGE    1$                  ;
+        TST    RKCS                ;   IF ERROR THEN
+        BGE    5$                  ;     KERNELERROR(
+2$:     CLR    HEAD99+OPLIN1       ;          'SYSTEM LOAD ERROR(:0:)');
+        MOV    #3$,RESU19          ;
+        JSR    PC,KERN19           ;
+3$:     .ASCIZ /SYSTEM LOAD ERROR/ ;
+        .EVEN                      ;
+5$:     CLR    R0                  ;   SYSTEMLENGTH :=
+        MOV    INTEND,R1           ;            ((PROGRAMSTART(.1.) - 1)
+        DEC    R1                  ;             DIV 512) * 512;
+        ASHC   #<-9.>,R0           ;
+        BEQ    7$                  ;
+        ASH    #8.,R1              ;
+        NEG    R1                  ;
+        MOV    R1,RKWC             ;   READ(DISK0, ADDR, SYSTEM+1,
+        INC    RKCS                ;               SYSTEMLENGTH, ERROR);
+6$:     TSTB   RKCS                ;
+        BGE    6$                  ;
+        TST    RKCS                ;   IF ERROR THEN
+        BLT    2$                  ;     KERNELERROR(
+7$:                                ;          'SYSTEM LOAD ERROR(:0:)');
+        .ENDC                      ; END "LOADFROMDISK";
+                                   ;
+                                   ;
+                                   ; BEGIN "LOADSYSTEMPROGRAM"
+;* CONDITIONAL ASSEMBLY, ABOVE,    ;   IF SYSTEMTAPE THEN
+;* DEPENDING ON "$.DBTA".          ;     LOADFROMTAPE ELSE
+                                   ;     LOADFROMDISK(SYSTEMBLOCK);
+        RESET                      ;   RESETUNIBUS;
+        SPL    7                   ;   EXCLUDEINTERRUPTS;
+        INC    SSR0                ;   ADDRESSMAPPING := TRUE;
+$CLC0:                             ;   "CLEAR REMAINING CORE"
+        CLR    R0                  ;   SEGADDR := GETSEGMENTADDRESS(
+        MOV    #INTEND,R1          ;                        PROGRAMEND);
+        ADD    INTEND,R1           ;
+        ADC    R0                  ;
+        MOV    R1,R2               ;
+        BIC    #017777,R1          ;
+        ASHC   #-6,R0              ;
+        MOV    KISAR+12.,R0        ;
+        MOV    R1,KISAR+12.        ;
+        BIC    #160000,R2          ;   SEGINDEX := GETSEGMENTINDEX(
+        MOV    R2,R1               ;                        PROGRAMEND);
+        ASR    R1                  ;
+        NEG    R1                  ;
+        MOV    #3$,FETRAP          ;   REPEAT
+2$:     ADD    #.SEGSW,R1          ;     FOR I := SEGINDEX TO 4096 DO
+        ADD    #140000,R2          ;
+1$:     CLR    (R2)+               ;     SEGADDR@(.I.) := 0;
+        SOB    R1,1$               ;
+        ADD    #.SGSBK,KISAR+12.   ;     SEGADDR := GETNEXTSEGMENT(
+        CLR    R2                  ;                           SEGADDR);
+        CMP    #.PRBLK,KISAR+12.   ;     SEGINDEX := 1;
+        BNE    2$                  ;   UNTIL SEGADDR = ENDOFCORE;
+        SUB    #4,SP               ;
+3$:     MOV    #FEINT,FETRAP       ;
+        ADD    #4,SP               ;
+        MOV    KISAR+12.,COREC9    ;   CORECAPACITY := BLOCKNUMBER(
+        MOV    R0,KISAR+12.        ;                           SEGADDR);
+        VERCOR                     ;
+        .IF EQ $.DBNC              ;
+        MOV    #LKSINE,LKS         ;   STARTLINEFREQUENCYCLOCK;
+        .ENDC                      ;
+        MOV    #KNEXIT,R0          ; END;
+        JSR    R0,INIT36           ;
+                                   ;
+                                   ;
+        .SBTTL END OF THE KERNEL MODULE PREFACE
+        .SBTTL
+        .SBTTL #########################################################
+        .SBTTL
+
+;*
+;*
+;*
+;*
+;*
+;*
+;*
+;*
+;***********************************************************************
+;***********************************************************************
+;***********************************************************************
+;****                                                              *****
+;****                                                              *****
+;****                                                              *****
+;****          THIS MARKS THE END OF THE KERNEL MODULE PREFACE.    *****
+;****                                                              *****
+;****   THE CODE PROPER OF THE KERNEL FOLLOWS:                     *****
+;****                                                              *****
+;****                                                              *****
+;****                                                              *****
+;***********************************************************************
+;***********************************************************************
+;***********************************************************************
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+;*                                 ;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                 

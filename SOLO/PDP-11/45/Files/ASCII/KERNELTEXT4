@@ -1,0 +1,1460 @@
+        .PAGE
+        .SBTTL KERNEL/INTERPRETER INTERFACE
+                                   ;
+                                   ;
+INTL99: .WORD  <INTEND - USER99>   ; CONST INTERPRETERLENGTH = ...;
+                                   ;
+                                   ;
+     $1 =      . - ZERO            ;  "ENSURE BLOCK ALIGNMENT"
+     $2 =      <$1 + 63.> / 64.    ;
+     $2 =      <$2 * 64.> - $1     ;
+        .BLKB  $2                  ;
+                                   ;
+                                   ;
+USER99: .BLKB  .PROCREF            ;
+USER    =      USER99              ;
+TABL99: .WORD   CONSTA-USER,LOCALA-USER,GLOBAL-USER,PUSHCO-USER
+        .WORD   PUSHLO-USER,PUSHGL-USER,PUSHIN-USER,PUSHBY-USER
+        .WORD   PUSHRE-USER,PUSHSE-USER,FIELD -USER,INDEX -USER
+        .WORD   POINTE-USER,VARIAN-USER,RANGE -USER,COPYBY-USER
+        .WORD   COPYWO-USER,COPYRE-USER,COPYSE-USER,COPYTA-USER
+        .WORD   COPYST-USER,NEW   -USER,NEWINI-USER,NOT   -USER
+        .WORD   ANDWOR-USER,ANDSET-USER,ORWORD-USER,ORSET -USER
+        .WORD   NEGWOR-USER,NEGREA-USER,ADDWOR-USER,ADDREA-USER
+        .WORD   SUBWOR-USER,SUBREA-USER,SUBSET-USER,MULWOR-USER
+        .WORD   MULREA-USER,DIVWOR-USER,DIVREA-USER,MODWOR-USER
+        .WORD   BUILDS-USER,INSET -USER,LSWORD-USER,EQWORD-USER
+        .WORD   GRWORD-USER,NLWORD-USER,NEWORD-USER,NGWORD-USER
+        .WORD   LSREAL-USER,EQREAL-USER,GRREAL-USER,NLREAL-USER
+        .WORD   NEREAL-USER,NGREAL-USER,EQSET -USER,NLSET -USER
+        .WORD   NESET -USER,NGSET -USER,LSSTRU-USER,EQSTRU-USER
+        .WORD   GRSTRU-USER,NLSTRU-USER,NESTRU-USER,NGSTRU-USER
+        .WORD   FUNCVA-USER,JUMP  -USER,FALSEJ-USER,CASEJU-USER
+        .WORD   INITVA-USER,CALL  -USER,CALLSY-USER,ENTER -USER
+        .WORD   EXIT  -USER,ENPROG-USER,EXPROG-USER,BEGINC-USER
+        .WORD   ENDCLA-USER,ENTERC-USER,EXITCL-USER,BEGINM-USER
+        .WORD   ENDMON-USER,ENTERM-USER,EXITMO-USER,BEGINP-USER
+        .WORD   ENDPRO-USER,ENPROC-USER,EXPROC-USER,POP   -USER
+        .WORD   NEWLIN-USER,INCWOR-USER,DECWOR-USER,INITCL-USER
+        .WORD   INITMO-USER,INITPR-USER,PUSHLA-USER,CALLPR-USER
+        .WORD   TRUNCR-USER,ABSWOR-USER,ABSREA-USER,SUCCWO-USER
+        .WORD   PREDWO-USER,CONVWO-USER,EMPTY -USER,ATTRIB-USER
+        .WORD   REALTI-USER,DELAY -USER,CONTIN-USER,IO    -USER
+        .WORD   START -USER,STOP  -USER,SETHEA-USER,WAIT  -USER
+HEAD99: .BLKB  .HEADTYPE           ;
+CONS99: .BLKB  .INTEGER            ;
+                                   ;
+                                   ;
+KLEN99  =      . - ZERO            ;
+                                   ;
+                                   ;
+
+
+        .SBTTL
+        .SBTTL #########################################################
+        .SBTTL
+        .PAGE
+        .TITLE  PASCAL INTERPRETER
+
+
+;  TOM ZEPKO
+;  JORGENSEN LAB  286-80
+;  CALIFORNIA INSTITUTE OF TECHNOLOGY
+;  OCTOBER 1974
+
+
+        .SBTTL  PROCESS HEAD    ;
+                                ;
+HEAD  = HEAD99 - USER99         ;  "THESE ENTRIES IN THE PROCESS HEAD
+HEAPTO= HEAD99 + HEAPT1         ;    ARE USED BY THE INTERPRETER."
+LINE  = HEAD99 + LINE1          ;
+RESULT= HEAD99 + RESUL1         ;
+JOB   = HEAD99 + JOB1           ;
+CONT  = HEAD99 + CONTI1         ;
+OPCODE= HEAD99 + OPCOD1         ;
+ARG1  = HEAD99 + PARAM1         ;
+ARG2  = HEAD99 + PARAM1 + 2     ;
+ARG3  = HEAD99 + PARAM1 + 4     ;
+ARG4  = HEAD99 + PARAM1 + 6     ;
+OPLINE= HEAD99 + OPLIN1         ;
+CONST = CONS99                  ;
+                                ;
+                                ;
+        .SBTTL  KERNEL OPERATIONS
+                                ;
+INITG1= INIT18                  ;INITGATE1
+ENTEG1= ENTE17                  ;ENTERGATE1
+LEAVG1= LEAV17                  ;LEAVEGATE1
+ENDPR1= ENDP14                  ;ENDPROCESS1
+INITP1= INIT13                  ;INITPROCESS1
+REALT1= REALT7                  ;REALTIME1
+DELAY1= DELA17                  ;DELAYGATE1
+CONTG1= CONT17                  ;CONTGATE1
+STOPJ1= STOP15                  ;STOPJOB1
+WAIT1 = WAIT7                   ;WAIT1
+SYSTE1= SYST11                  ;SYSTEMERROR1
+IO1   = IO31                    ;INPUT_OUTPUT
+                                ;
+                                ;
+        .SBTTL  NEXT INSTRUCTION MACRO
+        .MACRO  NEXT
+        .IF NE  $.DBIT
+        JSR     PC,ITRACE
+        .ENDC
+        MOV     @(Q)+,P
+        .ENDM   NEXT
+                                ;
+                                ;
+        .SBTTL  KERNEL CALL MACRO
+        .MACRO  KNCALL
+        MOV     (B),OPLINE
+        IOT
+        .ENDM   KNCALL
+                                ;
+                                ;
+        .SBTTL  INTERPRETER TRACE MACRO
+        .MACRO  INTRCE
+        .IF NE  $.DBIT
+        MOV     HEAD99+INDEX1,R0
+        DEC     R0
+        ASL     R0
+        MOV     S,ENDSTK-USER99(R0)
+        BR      ITRACX
+ENDSTK: .REPT   PROCS
+        .WORD   0
+        .ENDR
+ITRACE: MOV     (Q),ARG1
+        MOV     Q,ARG2
+        SUB     #2.,ARG2
+        MOV     S,ARG3
+        ADD     #2.,ARG3
+        MOV     HEAD99+INDEX1,R1
+        DEC     R1
+        ASL     R1
+        MOV     ENDSTK-USER99(R1),ARG4
+        TRAP
+        RTS     PC
+ITRACX:
+        .ENDC
+        .ENDM   INTRCE
+                                ;
+                                ;
+        .PAGE
+        .SBTTL  START ADDRESS   ;
+STARTA: INTRCE                  ;STARTADDR: P:=ST(Q); Q:+2;
+        NEXT                    ;
+                                ;
+                                ;
+        .SBTTL  REAL OVERFLOW   ;
+REALOV: JMP     OVERFL          ;REALOVERFLOW:  GOTO OVERFLOWERROR;
+                                ;
+                                ;
+        .SBTTL  CONSTADDR       ;PROCEDURE CONSTADDR(DISPL);
+                                ;  BEGIN
+CONSTA: TST     JOB             ;    TEST ST(JOB);
+        BNE     1$              ;    IF ZERO
+        MOV     CONST,-(S)      ;      THEN S:-2; ST(S):=ST(CONSTADDR) "SYSTEM"
+        BR      2$              ;
+1$:     MOV     10.(G),-(S)     ;      ELSE S:-2; ST(S):=ST(G+10);     "JOB"
+2$:     ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  LOCALADDR       ;PROCEDURE LOCALADDR(DISPL);
+                                ;  BEGIN
+LOCALA: MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  GLOBALADDR      ;PROCEDURE GLOBALADDR(DISPL);
+                                ;  BEGIN
+GLOBAL: MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHCONST       ;PROCEDURE PUSHCONST(VALUE);
+                                ;  BEGIN
+PUSHCO: MOV     (Q)+,-(S)       ;  S:-2; ST(S):=ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHLOCAL       ;PROCEDURE PUSHLOCAL(DISPL);
+                                ;  BEGIN
+PUSHLO: MOV     B,W             ;    W:=B;
+        ADD     (Q)+,W          ;    W:+ST(Q); Q:+2;
+        MOV     (W),-(S)        ;    S:-2; ST(S):=ST(W);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHGLOBAL      ;PROCEDURE PUSHGLOBAL(DISPL);
+                                ;  BEGIN
+PUSHGL: MOV     G,W             ;    W:=G;
+        ADD     (Q)+,W          ;    W:+ST(Q); Q:+2;
+        MOV     (W),-(S)        ;    S:-2; ST(S):=ST(W);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHIND         ;PROCEDURE PUSHIND;
+                                ;  BEGIN
+PUSHIN: MOV     @(S),(S)        ;    ST(S):=ST(ST(S));
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHBYTE        ;PROCEDURE PUSHBYTE;
+                                ;  BEGIN
+PUSHBY: MOVB    @(S),W          ;    W:=<BYTE>ST(ST(S));
+        MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHREAL        ;PROCEDURE PUSHREAL;
+                                ;  BEGIN
+PUSHRE: MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        ADD     #8.,W           ;    W:+8;
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHSET         ;PROCEDURE PUSHSET;
+                                ;  BEGIN
+PUSHSE: MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        ADD     #16.,W          ;    W:+16;
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        MOV     -(W),-(S)       ;    W:-2; S:-2; ST(S):=ST(W);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  FIELD           ;PROCEDURE FIELD(DISPL);
+                                ;  BEGIN
+FIELD:  ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INDEX           ;PROCEDURE INDEX(MIN,MAX-MIN,LENGTH);
+                                ;  BEGIN
+INDEX:  MOV     (S)+,X          ;    X:=ST(S); S:+2;
+        SUB     (Q)+,X          ;    X:-ST(Q); Q:+2;
+        BGE     1$              ;    IF LESS THEN
+        JMP     RANGER          ;      GOTO RANGEERROR;
+1$:     CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;
+        BLE     2$              ;    IF GREATER THEN
+        JMP     RANGER          ;      GOTO RANGEERROR
+2$:     MUL     (Q)+,X          ;    X:*ST(Q); Q:+2;
+        ADD     X,(S)           ;    ST(S):+X;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  POINTER         ;PROCEDURE POINTER;
+                                ;  BEGIN
+POINTE: TST     (S)             ;    TEST ST(S);
+        BNE     1$              ;    IF ZERO THEN
+        JMP     POINER          ;      GOTO POINTERERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  VARIANT         ;PROCEDURE VARIANT(DISPL,TAGSET)
+                                ;  BEGIN
+VARIAN: MOV     #1,W            ;    W:=1;
+        MOV     (S),X           ;    X:=ST(S);              "X=RECORD ADDR"
+        ADD     (Q)+,X          ;    X:+ST(Q); Q:+2;        "X=TAG ADDR"
+        ASH     (X),W           ;    W: SHIFT ST(X);        "W=1 SHIFT TAGVALUE"
+        BIT     W,(Q)+          ;    ST(Q) TESTBIT W; Q:+2;
+        BNE     1$              ;    IF BITZERO THEN
+        JMP     VARIER          ;      GOTO VARIANTERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  RANGE           ;PROCEDURE RANGE(MIN,MAX);
+                                ;  BEGIN
+RANGE:  CMP     (S),(Q)+        ;    ST(S) COMPARE ST(Q); Q:+2;
+        BGE     1$              ;    IF LESS THEN
+        JMP     RANGER          ;      GOTO RANGEERROR;
+1$:     CMP     (S),(Q)+        ;    ST(S) COMPARE ST(Q); Q:+2;
+        BLE     2$              ;    IF GREATER THEN
+        JMP     RANGER          ;      GOTO RANGEERROR;
+2$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYBYTE        ;PROCEDURE COPYBYTE;
+                                ;  BEGIN
+COPYBY: MOVB    (S)+,@(S)+      ;    ST(ST(S+2)):=<BYTE>ST(S); S:+4;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYWORD        ;PROCEDURE COPYWORD;
+                                ;  BEGIN
+COPYWO: MOV     (S)+,@(S)+      ;    ST(ST(S+2)):=ST(S); S:+4;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYREAL        ;PROCEDURE COPYREAL;
+                                ;  BEGIN
+COPYRE: MOV     8.(S),W         ;    W:=ST(S+8);
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYSET         ;PROCEDURE COPYSET;
+                                ;  BEGIN
+COPYSE: MOV     16.(S),W        ;    W:=ST(S+16);
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        MOV     (S)+,(W)+       ;    ST(W):=ST(S); W:+2; S:+2;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYTAG         ;PROCEDURE COPYTAG(LENGTH DIV 2);
+                                ;  BEGIN                        "LENGTH>0"
+COPYTA: MOV     (S)+,@(S)       ;    ST(ST(S+2)):=ST(S); S:+2;
+        MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;            "W=LENGTH DIV 2"
+        MOV     (S)+,X          ;    X:=ST(S) S:+2;             "X=TAG ADDR"
+        TST     (X)+            ;    TEST ST(X); X:+2;
+1$:     CLR     (X)+            ;    ITERATE W TIMES
+        SOB     W,1$            ;      CLEAR ST(X); X:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  COPYSTRUC       ;PROCEDURE COPYSTRUC(LENGTH DIV 2);
+                                ;  BEGIN
+COPYST: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;            "W=LENGTH DIV 2"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S)+,Y          ;    Y:=ST(S); S:+2;            "Y=DEST ADDR"
+1$:     MOV     (X)+,(Y)+       ;    ITERATE W TIMES
+        SOB     W,1$            ;      ST(Y):=ST(X); Y:+2; X:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEW             ;PROCEDURE NEW(STACKLENGTH+LENGTH,LENGTH);
+                                ;  BEGIN
+NEW:    MOV     B,X             ;    X:=B;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN
+        JMP     HEAPLI          ;      GOTO HEAPLIMIT;
+1$:     MOV     HEAPTO,@(S)+    ;    ST(ST(S)):=ST(HEAPTOP); S:+2;
+        ADD     (Q)+,HEAPTO     ;    ST(HEAPTOP):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEWINIT         ;PROCEDURE NEWINIT(STACKLENGTH+LENGTH,LENGTH);
+                                ;  BEGIN                        "LENGTH>0"
+NEWINI: MOV     B,X             ;    B:=X
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN
+        JMP     HEAPLI          ;      GOTO HEAPLIMIT;
+1$:     MOV     HEAPTO,@(S)+    ;    ST(ST(S)):=ST(HEAPTOP); S:+2;
+        MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        ADD     W,HEAPTO        ;    ST(HEAPTOP):+W;
+        ASR     W               ;    HALVE W
+        MOV     HEAPTO,X        ;    X:=ST(HEAPTOP);
+2$:     CLR     -(X)            ;    ITERATE W TIMES
+        SOB     W,2$            ;      X:-2; CLEAR ST(X);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NOT             ;PROCEDURE NOT;
+                                ;  BEGIN
+NOT:    NEG     (S)             ;    ST(S):=-ST(S);
+        INC     (S)             ;    INCREMENT ST(S);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ANDWORD         ;PROCEDURE ANDWORD;
+                                ;  BEGIN
+ANDWOR: MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        COM     W               ;    W:=NOT W;
+        BIC     W,(S)           ;    ST(S):ANDNOT W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ANDSET          ;PROCEDURE ANDSET;
+                                ;  BEGIN
+ANDSET: MOV     #8.,W           ;    W:=8;
+                                ;    ITERATE W TIMES
+                                ;      BEGIN
+1$:     COM     (S)             ;        ST(S):=NOT ST(S);
+        BIC     (S)+,14.(S)     ;        ST(S+16):ANDNOT ST(S); S:+2;
+        SOB     W,1$            ;      END;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ORWORD          ;PROCEDURE ORWORD;
+                                ;  BEGIN
+ORWORD: BIS     (S)+,(S)        ;    ST(S+2):OR ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ORSET           ;PROCEDURE ORSET;
+                                ;  BEGIN
+ORSET:  MOV     #8.,W           ;    W:=8;
+1$:     BIS     (S)+,14.(S)     ;    ITERATE W TIMES
+        SOB     W,1$            ;      ST(S+16):OR ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEGWORD         ;PROCEDURE NEGWORD;
+                                ;  BEGIN
+NEGWOR: NEG     (S)             ;    ST(S):=-ST(S)
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEGREAL         ;PROCEDURE NEGREAL;
+                                ;  BEGIN
+NEGREA: NEGD    (S)             ;    ST(S):=<REAL>-ST(S);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ADDWORD         ;PROCEDURE ADDWORD;
+                                ;  BEGIN
+ADDWOR: ADD     (S)+,(S)        ;    ST(S+2):+ST(S); S:+2;
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ADDREAL         ;PROCEDURE ADDREAL;
+                                ;  BEGIN
+ADDREA: LDD     (S)+,W          ;    W:=<REAL>ST(S); S:+8;
+        ADDD    (S),W           ;    W:+<REAL>ST(S);
+        STD     W,(S)           ;    ST(S):=<REAL>W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  SUBWORD         ;PROCEDURE SUBWORD;
+                                ;  BEGIN
+SUBWOR: SUB     (S)+,(S)        ;    ST(S+2):-ST(S):  S:+2;
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  SUBREAL         ;PROCEDURE SUBREAL;
+                                ;  BEGIN
+SUBREA: LDD     (S)+,W          ;    W:=<REAL>ST(S); S:+8;
+        LDD     (S),X           ;    X:=<REAL>ST(S);
+        SUBD    W,X             ;    X:-<REAL>W;
+        STD     X,(S)           ;    ST(S):=<REAL>X;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  SUBSET          ;PROCEDURE SUBSET;
+                                ;  BEGIN
+SUBSET: MOV     #8.,W           ;    W:=8;
+1$:     BIC     (S)+,14.(S)     ;    ITERATE W TIMES
+        SOB     W,1$            ;      ST(S+16):ANDNOT ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  MULWORD         ;PROCEDURE MULWORD;
+                                ;  BEGIN
+MULWOR: MOV     (S)+,X          ;    X:=ST(S); S:+2;
+        CLC                     ;    CARRY:=FALSE;
+        MUL     (S),X           ;    X:*ST(S);
+        BCC     1$              ;    IF CARRY THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     MOV     X,(S)           ;    ST(S):=X;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  MULREAL         ;PROCEDURE MULREAL;
+                                ;  BEGIN
+MULREA: LDD     (S)+,W          ;    W:=<REAL>ST(S); S:+8;
+        MULD    (S),W           ;    W:*<REAL>ST(S);
+        STD     W,(S)           ;    ST(S):=<REAL>W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  DIVWORD         ;PROCEDURE DIVWORD;
+                                ;  BEGIN
+DIVWOR: MOV     2(S),X          ;    X:=ST(S+2);
+        SXT     W               ;    EXTENDSIGN W;
+        DIV     (S)+,W          ;    WX:/ST(S); S:+2;
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  DIVREAL         ;PROCEDURE DIVREAL;
+                                ;  BEGIN
+DIVREA: LDD     8.(S),W         ;    W:=<REAL>ST(S+8);
+        DIVD    (S)+,W          ;    W:/<REAL>ST(S); S:+8;
+        STD     W,(S)           ;    ST(S):=<REAL>W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  MODWORD         ;PROCEDURE MODWORD;
+                                ;  BEGIN
+MODWOR: MOV     2(S),X          ;    X:=ST(S+2);
+        SXT     W               ;    EXTENDSIGN W;
+        DIV     (S)+,W          ;    WX:/ST(S); S:+2;
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     MOV     X,(S)           ;    ST(S):=X;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  BUILDSET        ;PROCEDURE BUILDSET;
+                                ;  BEGIN
+BUILDS: MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        BLT     1$              ;    IF W<0 THEN GOTO RANGEERROR;
+        CMP     W,#127.         ;    W COMPARE 127;
+        BLE     2$              ;    IF GREATER THEN
+1$:     JMP     RANGER          ;      GOTO RANGEERROR;
+2$:     MOV     W,X             ;    X:=W;                      "X=MEMBER"
+        BIC     #177770,W       ;    W:MOD 8;                   "W=MEMBER MOD 8"
+        ASH     #-3.,X          ;    X:DIV 8;
+        ADD     S,X             ;    X:+S;                      "X=SET BYTE ADR"
+        MOV     #1,Y            ;    Y:=1;
+        ASH     W,Y             ;    Y:SHIFT W;                 "Y=SET BYTE BIT"
+        BISB    Y,(X)           ;    ST(X):OR<BYTE> Y;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INSET           ;PROCEDURE INSET;
+                                ;  BEGIN
+INSET:  MOV     16.(S),W        ;    W:=ST(S+16);
+        BLT     1$              ;    IF W<0 THEN GOTO RANGEERROR;
+        CMP     W,#127.         ;    W COMPARE 127;
+        BLE     2$              ;    IF GREATER THEN
+1$:     JMP     RANGER          ;      GOTO RANGEERROR;
+2$:     MOV     W,X             ;    X:=W;                      "X=MEMBER"
+        BIC     #177770,W       ;    W:MOD 8;                   "W=MEMBER MOD 8"
+        ASH     #-3.,X          ;    X:DIV 8;
+        ADD     S,X             ;    X:+S;                      "X=SET BYTE ADR"
+        MOVB    (X),Y           ;    Y:=<BYTE> ST(X);           "Y=SET BYTE"
+        NEG     W               ;    W:=-W;
+        ASH     W,Y             ;    Y:SHIFT W;
+        BIC     #177776,Y       ;    Y:MOD 2;                   "Y=SET BIT"
+        ADD     #16.,S          ;    S:+16;
+        MOV     Y,(S)           ;    ST(S):=Y;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  LSWORD          ;PROCEDURE LSWORD;
+                                ;  BEGIN
+LSWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2);  S:+2;
+        BLE     1$              ;    IF GREATER THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EQWORD          ;PROCEDURE EQWORD;
+                                ;  BEGIN
+EQWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2); S:+2;
+        BNE     1$              ;    IF EQUAL THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  GRWORD          ;PROCEDURE GRWORD;
+                                ;  BEGIN
+GRWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2); S:+2;
+        BGE     1$              ;    IF LESS THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NLWORD          ;PROCEDURE NLWORD;
+                                ;  BEGIN
+NLWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2); S:+2;
+        BGT     1$              ;    IF NOTGREATER THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEWORD          ;PROCEDURE NEWORD;
+                                ;  BEGIN
+NEWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2); S:+2;
+        BEQ     1$              ;    IF NOTEQUAL THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NGWORD          ;PROCEDURE NGWORD;
+                                ;  BEGIN
+NGWORD: CLR     W               ;    CLEAR W;
+        CMP     (S)+,(S)        ;    ST(S) COMPARE ST(S+2); S:+2;
+        BLT     1$              ;    IF NOTLESS THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  LSREAL          ;PROCEDURE LSREAL;
+                                ;  BEGIN
+LSREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BGE     1$              ;    IF LESS THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EQREAL          ;PROCEDURE EQREAL;
+                                ;  BEGIN
+EQREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BNE     1$              ;    IF EQUAL THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  GRREAL          ;PROCEDURE GRREAL
+                                ;  BEGIN
+GRREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BLE     1$              ;    IF GREATER THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NLREAL          ;PROCEDURE NLREAL
+                                ;  BEGIN
+NLREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BLT     1$              ;    IF NOTLESS THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEREAL          ;PROCEDURE NEREAL;
+                                ;  BEGIN
+NEREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BEQ     1$              ;    IF NOTEQUAL THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NGREAL          ;PROCEDURE NGREAL
+                                ;  BEGIN
+NGREAL: CLR     W               ;    CLEAR W;
+        LDD     (S)+,X          ;    X:=<REAL>ST(S); S:+8;
+        CMPD    (S)+,X          ;    ST(S) COMPARE X; S:+8;
+        CFCC                    ;    COPYCONDITIONS;
+        BGT     1$              ;    IF NOTGREATER THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,-(S)          ;    S:-2; ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EQSET           ;PROCEDURE EQSET;
+                                ;  BEGIN
+EQSET:  CLR     W               ;    CLEAR W;
+        MOV     S,X             ;    X:=S;
+        MOV     #8.,Y           ;    Y:=8;
+                                ;    REPEAT
+1$:     CMP     16.(X),(X)+     ;      ST(X+16) COMPARE ST(X); X:+2;
+        BNE     2$              ;      Y:-1;
+        SOB     Y,1$            ;    UNTIL (Y=0) OR NOTEQUAL;
+        INC     W               ;    IF EQUAL THEN INCREMENT W;
+2$:     ADD     #30.,S          ;    S:+30;
+        MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NLSET           ;PROCEDURE NLSET;
+                                ;  BEGIN
+NLSET:  CLR     W               ;    CLEAR W;
+        MOV     S,X             ;    X:=S;
+        MOV     #8.,Y           ;    Y:=8;
+                                ;    REPEAT
+1$:     BIC     16.(X),(X)+     ;      ST(X):ANDNOT ST(X+16); X:+2;
+        BNE     2$              ;      Y:-1;
+        SOB     Y,1$            ;    UNTIL (Y=0) OR NOTZERO;
+        INC     W               ;    IF ZERO THEN INCREMENT W;
+2$:     ADD     #30.,S          ;    S:+30;
+        MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NESET           ;PROCEDURE NESET;
+                                ;  BEGIN
+NESET:  MOV     #1,W            ;    W:=1;
+        MOV     S,X             ;    X:=S;
+        MOV     #8.,Y           ;    Y:=8;
+                                ;    REPEAT
+1$:     CMP     16.(X),(X)+     ;      ST(X+16) COMPARE ST(X); X:+2;
+        BNE     2$              ;      Y:-1;
+        SOB     Y,1$            ;    UNTIL (Y=0) OR NOTEQUAL;
+        CLR     W               ;    IF EQUAL THEN CLEAR W;
+2$:     ADD     #30.,S          ;    S:+30;
+        MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NGSET           ;PROCEDURE NGSET;
+                                ;  BEGIN
+NGSET:  CLR     W               ;    CLEAR W;
+        MOV     S,X             ;    X:=S;
+        MOV     #8.,Y           ;    Y:=8;
+                                ;    REPEAT
+1$:     BIC     (X)+,14.(X)     ;      ST(X+16):ANDNOT ST(X); X:+2;
+        BNE     2$              ;      Y:-1;
+        SOB     Y,1$            ;    UNTIL (Y=0) OR NOTZERO;
+        INC     W               ;    IF ZERO THEN INCREMENT W;
+2$:     ADD     #30.,S          ;    S:+30;
+        MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  LSSTRUCT        ;PROCEDURE LSSTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+LSSTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        ASL     W               ;    DOUBLE W;                  "W=LENGTH"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        CLR     (S)             ;    CLEAR ST(S);
+                                ;    REPEAT
+1$:     CMPB    (Y)+,(X)+       ;      ST(Y) COMPARE<BYTE> ST(X); Y:+1; X:+1;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+2$:     BGE     3$              ;    IF LESS THEN
+        INC     (S)             ;      INCREMENT ST(S);
+3$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EQSTRUCT        ;PROCEDURE EQSTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+EQSTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;            "W=LENGTH DIV 2"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        CLR     (S)             ;    CLEAR ST(S);
+                                ;    REPEAT
+1$:     CMP     (Y)+,(X)+       ;      ST(Y) COMPARE ST(X); Y:+2; X:+2;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+        INC     (S)             ;    IF EQUAL THEN INCREMENT ST(S);
+2$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  GRSTRUCT        ;PROCEDURE GRSTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+GRSTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        ASL     W               ;    DOUBLE W;                  "W=LENGTH"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        CLR     (S)             ;    CLEAR ST(S);
+                                ;    REPEAT
+1$:     CMPB    (Y)+,(X)+       ;      ST(Y) COMPARE<BYTE> ST(X); Y:+1; X:+1;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+2$:     BLE     3$              ;    IF GREATER THEN
+        INC     (S)             ;      INCREMENT ST(S);
+3$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NLSTRUCT        ;PROCEDURE NLSTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+NLSTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        ASL     W               ;    DOUBLE W;                  "W=LENGTH"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        CLR     (S)             ;    CLEAR ST(S);
+                                ;    REPEAT
+1$:     CMPB    (Y)+,(X)+       ;      ST(Y) COMPARE<BYTE> ST(X); Y:+1; X:+1;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+2$:     BLT     3$              ;    IF NOTLESS THEN
+        INC     (S)             ;      INCREMENT ST(S);
+3$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NESTRUCT        ;PROCEDURE NESTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+NESTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;            "W=LENGTH DIV 2"
+        MOV     (S)+,X          ;    X:=ST(S) S:+2;             "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        MOV     #1,(S)          ;    ST(S):=1;
+                                ;    REPEAT
+1$:     CMP     (Y)+,(X)+       ;      ST(Y) COMPARE ST(X); Y:+2; X:+2;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+        CLR     (S)             ;    IF EQUAL THEN CLEAR ST(S);
+2$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NGSTRUCT        ;PROCEDURE NGSTRUCT(LENGTH DIV 2);
+                                ;  BEGIN
+NGSTRU: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        ASL     W               ;    DOUBLE W;                  "W=LENGTH"
+        MOV     (S)+,X          ;    X:=ST(S); S:+2;            "X=SOURCE ADDR"
+        MOV     (S),Y           ;    Y:=ST(S);                  "Y=DEST ADDR"
+        CLR     (S)             ;    CLEAR ST(S);
+                                ;    REPEAT
+1$:     CMPB    (Y)+,(X)+       ;      ST(Y) COMPARE<BYTE> ST(X); Y:+1; X:+1;
+        BNE     2$              ;      W:-1;
+        SOB     W,1$            ;    UNTIL (W=0) OR NOTEQUAL;
+2$:     BGT     3$              ;    IF NOT GREATER THEN
+        INC     (S)             ;      INCREMENT ST(S);
+3$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  FUNCVALUE       ;PROCEDURE FUNCVALUE(KIND);
+                                ;  BEGIN
+FUNCVA: ADD     (Q)+,P          ;    CASE KIND OF
+                                ;      SIMPLEWORD:              "0"
+                                ;        BEGIN
+        CLR     -(S)            ;          S:-2; CLEAR ST(S);
+        BR      1$              ;        END;
+        .WORD   0,0             ;        "FILLER"
+                                ;      SIMPLEREAL:              "8"
+                                ;        BEGIN
+        SUB     #8.,S           ;          S:-8;
+        BR      1$              ;        END;
+        .WORD   0               ;        "FILLER"
+                                ;      CLASSWORD:               "16"
+                                ;        BEGIN
+        MOV     (S),W           ;          W:=ST(S);
+        CLR     (S)             ;          CLEAR ST(S);
+        MOV     W,-(S)          ;          S:-2; ST(S):=W;
+        BR      1$              ;        END;
+                                ;      CLASSREAL:               "24"
+                                ;        BEGIN
+        MOV     (S),W           ;          W:=ST(S);
+        SUB     #8.,S           ;          S:-8;
+        MOV     W,(S)           ;          ST(S):=W;
+1$:     NEXT                    ;        END;
+                                ;      END;
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  JUMP            ;PROCEDURE JUMP(DISTANCE);
+                                ;  BEGIN
+JUMP:   ADD     (Q),Q           ;    Q:+ST(Q);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  FALSEJUMP       ;PROCEDURE FALSEJUMP(DISTANCE);
+                                ;  BEGIN
+FALSEJ: ADD     CONT,P          ;    IF (ST(CONTINUE) = 0)
+        TST     JOB             ;     &
+        BEQ     1$              ;      (ST(JOB) <> 0)
+        JMP     EXCEPT          ;    THEN GOTO EXCEPTION
+                                ;    ELSE
+                                ;    BEGIN
+1$:     TST     (S)+            ;    TEST ST(S); S:+2;          "CONTINUE=10"
+        BNE     2$              ;    IF ZERO
+        ADD     (Q),Q           ;      THEN Q:+ST(Q)
+        NEXT                    ;
+2$:     TST     (Q)+            ;      ELSE Q:+2;
+                                ;    END
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CASEJUMP        ;PROCEDURE CASEJUMP(MIN,MAX-MIN,DISTANCES);
+                                ;  BEGIN
+CASEJU: MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        SUB     (Q)+,W          ;    W:-ST(Q); Q:+2;
+        BLT     1$              ;    IF LESS THEN GOTO RANGEERROR;
+        CMP     W,(Q)+          ;    W COMPARE ST(Q); Q:+2;
+        BLE     2$              ;    IF GREATER THEN
+1$:     JMP     RANGER          ;      GOTO RANGEERROR;
+2$:     ASL     W               ;    DOUBLE W;
+        ADD     W,Q             ;    Q:+W;
+        ADD     (Q),Q           ;    Q:+ST(Q);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INITVAR         ;PROCEDURE INITVAR(LENGTH DIV 2);
+                                ;  BEGIN
+INITVA: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;
+        MOV     S,X             ;    X:=S;
+1$:     CLR     (X)+            ;    ITERATE W TIMES
+        SOB     W,1$            ;      CLEAR ST(X); X:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CALL            ;PROCEDURE CALL(DISTANCE);
+                                ;  BEGIN
+CALL:   MOV     Q,W             ;    W:=Q;
+        ADD     (Q)+,W          ;    W:+ST(Q); Q:+2;
+        MOV     Q,-(S)          ;    S:-2; ST(S):=Q;
+        MOV     W,Q             ;    Q:=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CALLSYS         ;PROCEDURE CALLSYS((ENTRY-2)*2);
+                                ;  BEGIN
+CALLSY: MOV     2(G),W          ;    W:=ST(G+2);     "OLD S BEFORE PROGRAM CALL"
+        ADD     (Q)+,W          ;    W:+ST(Q); Q:+2; "W = ENTRY POINT ADDR"
+        MOV     Q,-(S)          ;    S:-2; ST(S):=Q;
+        MOV     (W),Q           ;    Q:=ST(W);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ACTIVATION REC  ;"ACTIVATION RECORD:
+                                ;            <HEAP>
+                                ;  HEAPTOP:  <FREE SPACE>
+                                ;  S:        <TEMPORARIES>
+                                ;            <VARIABLES>
+                                ;  B (OR G): <LINE>
+                                ;    + 2     <OLD S>
+                                ;    + 4     <OLD B>
+                                ;    + 6     <OLD G>
+                                ;    + 8     <OLD Q>
+                                ;    + 10    <PARAMETERS>
+                                ;           (<FUNCTION RESULT>)
+                                ;
+                                ; MONITOR VARIABLE:
+                                ;            <VARIABLES>
+                                ;  G:        <GATE ADDRESS>
+                                ;            <PARAMETERS>
+                                ;
+                                ; STACKLENGTH = VARLENGTH + TEMPLENGTH + 10
+                                ; POPLENGTH = PARAMLENGTH + 8"
+                                ;
+                                ;
+        .SBTTL  ENTER           ;PROCEDURE ENTER(STACKLENGTH,POPLENGTH,LINE,
+                                ;                                    VARLENGTH);
+                                ;  BEGIN
+ENTER:  MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE OF CALL"
+1$:     MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EXIT            ;PROCEDURE EXIT;
+                                ;  BEGIN
+EXIT:   MOV     B,S             ;    S:=B;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        MOV     (S)+,B          ;    B:=ST(S); S:+2;
+        MOV     (S)+,G          ;    G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;    Q:=ST(S); S:+2;
+        MOV     W,S             ;    S:=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENTERPROG       ;PROCEDURE ENTERPROG(POPLENGTH,LINE,STACKLENGTH,
+                                ;                                    VARLENGTH);
+                                ;  BEGIN
+ENPROG: INC     JOB             ;    INCREMENT ST(JOB);
+        MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        MOV     B,G             ;    G:=B;
+        MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE 1 OF USER
+1$:     SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;             PROGRAM"
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EXITPROG        ;PROCEDURE EXITPROG;
+                                ;  BEGIN
+EXPROG: TST     CONT            ;    TEST ST(CONTINUE);
+        BNE     1$              ;    IF ZERO
+        JMP     EXCEPT          ;      THEN GOTO EXCEPTION
+1$:     JMP     TERMIN          ;      ELSE GOTO TERMINATED;
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  BEGINCLASS      ;PROCEDURE BEGINCLASS(STACKLENGTH,10,LINE,0);
+                                ;  BEGIN
+BEGINC: MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE OF CALL"
+1$:     MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;
+        MOV     2(B),W          ;    W:=ST(B+2);
+        MOV     -2(W),G         ;    G:=ST(W-2);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENDCLASS        ;PROCEDURE ENDCLASS;
+                                ;  BEGIN
+ENDCLA= EXIT                    ;    "SAME AS EXIT"
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  ENTERCLASS      ;PROCEDURE ENTERCLASS(STACKLENGTH,POPLENGTH,
+                                ;                              LINE,VARLENGTH);
+                                ;  BEGIN
+ENTERC= BEGINC                  ;    "SAME AS BEGINCLASS"
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  EXITCLASS       ;PROCEDURE EXITCLASS;
+                                ;  BEGIN
+EXITCL= EXIT                    ;    "SAME AS EXIT"
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  BEGINMON        ;PROCEDURE BEGINMON(STACKLENGTH,10,LINE,0);
+                                ;  BEGIN
+BEGINM: MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE OF CALL"
+1$:     MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;
+        MOV     2(B),W          ;    W:=ST(B+2);
+        MOV     -2(W),G         ;    G:=ST(W-2);
+        MOV     #INITG1,OPCODE  ;    ST(KERNELOP):=INITGATE1;
+        MOV     G,ARG1          ;    ST(KERNELARG1):=G;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENDMON          ;PROCEDURE ENDMON;
+                                ;  BEGIN
+ENDMON: MOV     #LEAVG1,OPCODE  ;    ST(KERNELOP):=LEAVEGATE1;
+        MOV     (G),ARG1        ;    ST(KERNELARG1):=ST(G);
+        KNCALL                  ;    KERNELCALL;
+        MOV     B,S             ;    S:=B;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        MOV     (S)+,B          ;    B:=ST(S); S:+2;
+        MOV     (S)+,G          ;    G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;    Q:=ST(S); S:+2;
+        MOV     W,S             ;    S:=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENTERMON        ;PROCEDURE ENTERMON(STACKLENGTH, POPLENGTH,
+                                ;                              LINE, VARLENGTH);
+                                ;  BEGIN
+ENTERM: MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE OF CALL"
+1$:     MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;
+        MOV     2(B),W          ;    W:=ST(B+2);
+        MOV     -2(W),G         ;    G:=ST(W-2);
+        MOV     #ENTEG1,OPCODE  ;    ST(KERNELOP):=ENTERGATE1;
+        MOV     (G),ARG1        ;    ST(KERNELARG1):=ST(G);
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EXITMON         ;PROCEDURE EXITMON;
+                                ;  BEGIN
+EXITMO= ENDMON                  ;    "SAME AS ENDMON"
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  BEGINPROC       ;PROCEDURE BEGINPROC(LINE);
+                                ;  BEGIN
+BEGINP: MOV     (Q)+,(B)        ;    ST(B):=ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENDPROC         ;PROCEDURE ENDPROC;
+                                ;  BEGIN
+ENDPRO: MOV     #ENDPR1,OPCODE  ;    ST(KERNELOP):=ENDPROCESS1;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ENTERPROC       ;PROCEDURE ENTERPROC(STACKLENGTH,POPLENGTH,
+                                ;                               LINE,VARLENGTH);
+                                ;  BEGIN
+ENPROC: MOV     S,X             ;    X:=S;
+        SUB     HEAPTO,X        ;    X:-ST(HEAPTOP);
+        CMP     X,(Q)+          ;    X COMPARE ST(Q); Q:+2;     "ERROR MESSAGE
+        BHIS    1$              ;    IF LESS<UNSIGNED> THEN      WILL REFER TO
+        JMP     STACKL          ;      GOTO STACKLIMIT;          LINE OF CALL"
+1$:     MOV     G,-(S)          ;    S:-2; ST(S):=G;
+        MOV     B,-(S)          ;    S:-2; ST(S):=B;
+        TST     -(S)            ;    S:-2;
+        MOV     S,(S)           ;          ST(S):=S;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        MOV     (Q)+,-(S)       ;    S:-2; ST(S):=ST(Q); Q:+2;
+        MOV     S,B             ;    B:=S;
+        SUB     (Q)+,S          ;    S:-ST(Q); Q:+2;
+        MOV     6(G),G          ;    G:=ST(G+6);
+        CLR     JOB             ;    CLEAR ST(JOB);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EXITPROC        ;PROCEDURE EXITPROC;
+                                ;  BEGIN
+EXPROC: MOV     B,S             ;    S:=B;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        MOV     (S)+,B          ;    B:=ST(S); S:+2;
+        MOV     (S)+,G          ;    G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;    Q:=ST(S); S:+2;
+        MOV     W,S             ;    S:=W;
+        INC     JOB             ;    INCREMENT ST(JOB);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  POP             ;PROCEDURE POP(LENGTH);
+                                ;  BEGIN
+POP:    ADD     (Q)+,S          ;    S:+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  NEWLINE         ;PROCEDURE NEWLINE(NUMBER);
+                                ;  BEGIN
+NEWLIN: MOV     (Q)+,(B)        ;    ST(B):=ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INCRWORD        ;PROCEDURE INCRWORD;
+                                ;  BEGIN
+INCWOR: INC     @(S)+           ;    INCREMENT ST(ST(S)); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  DECRWORD        ;PROCEDURE DECRWORD;
+                                ;  BEGIN
+DECWOR: DEC     @(S)+           ;    DECREMENT ST(ST(S)); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INITCLASS       ;PROCEDURE INITCLASS(PARAMLENGTH,DISTANCE);
+                                ;  BEGIN
+INITCL: MOV     (Q)+,W          ;    W:=ST(Q); Q:+2;            "W=PARAMLENGTH"
+        BEQ     2$              ;    IF NONZERO THEN
+                                ;      BEGIN
+        MOV     S,X             ;        X:=S;
+        ADD     W,X             ;        X:+W;                 "X=S+PARAMLENGTH"
+        MOV     (X),X           ;        X:=ST(X);
+        TST     (X)+            ;        TEST ST(X); X:+2;     "X=CLASS ADDR+2"
+        ASR     W               ;        HALVE W
+1$:     MOV     (S)+,(X)+       ;        ITERATE W TIMES
+        SOB     W,1$            ;          ST(X):=ST(S); X:+2; S:+2;
+                                ;      END;
+2$:     MOV     Q,W             ;    W:=Q;
+        ADD     (Q)+,W          ;    W:+ST(Q); Q:+2;
+        MOV     Q,-(S)          ;    S:-2; ST(S):=Q;
+        MOV     W,Q             ;    Q:=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  INITMON         ;PROCEDURE INITMON(PARAMLENGTH,DISTANCE);
+                                ;  BEGIN
+INITMO= INITCL                  ;    "SAME AS INITCLASS"
+                                ;  END;
+                                ;
+                                ;
+        .SBTTL  INITPROC        ;PROCEDURE INITPROC(PARAMLENGTH,VARLENGTH,
+                                ;                         STACKLENGTH,DISTANCE);
+                                ;  BEGIN
+INITPR: MOV     #INITP1,OPCODE  ;    ST(KERNELOP):=INITPROCESS1;
+        MOV     (Q)+,ARG1       ;    ST(KERNELARG1):=ST(Q); Q:+2;
+        MOV     (Q)+,ARG2       ;    ST(KERNELARG2):=ST(Q); Q:+2;
+        MOV     (Q)+,ARG3       ;    ST(KERNELARG3):=ST(Q); Q:+2;
+        MOV     Q,ARG4          ;    ST(KERNELARG4):=Q;
+        ADD     (Q)+,ARG4       ;    ST(KERNELARG4):+ST(Q); Q:+2;
+        KNCALL                  ;    KERNELCALL;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PUSHLABEL       ;PROCEDURE PUSHLABEL(DISTANCE);
+                                ;  BEGIN
+PUSHLA: MOV     Q,-(S)          ;    S:-2; ST(S):=Q;
+        ADD     (Q)+,(S)        ;    ST(S):+ST(Q); Q:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CALLPROG        ;PROCEDURE CALLPROG;
+                                ;  BEGIN
+CALLPR: MOV     Q,W             ;    W:=Q;                      "W=OLD Q"
+        MOV     (S),Q           ;    Q:=ST(S);                  "Q=CODE ADDR"
+        TST     (Q)+            ;    TEST ST(Q); Q:+2;
+        MOV     (Q)+,(S)        ;    ST(S):=ST(Q); Q:+2;        "ST(S)=CODELENG"
+        ADD     #4.,Q           ;    Q:+4;                      "Q=CODEADDR+8"
+        ADD     Q,(S)           ;    ST(S):+Q;                  "ST(S)=CONSTADR"
+        MOV     W,-(S)          ;    S:-2; ST(S):=W;            "PUSH(OLD Q)"
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  TRUNCREAL       ;PROCEDURE TRUNCREAL;
+                                ;  BEGIN
+TRUNCR: LDD     (S)+,W          ;    W:=<REAL> ST(S); S:+8;
+        STCDI   W,-(S)          ;    S:-2; ST(S):=TRUNC(W);
+        BVC     1$              ;    IF OVERFLOW THEN
+        JMP     OVERFL          ;      GOTO OVERFLOWERROR;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ABSWORD         ;PROCEDURE ABSWORD;
+                                ;  BEGIN
+ABSWOR: TST     (S)             ;    TEST ST(S);
+        BGE     1$              ;    IF NEGATIVE THEN
+                                ;      BEGIN
+        NEG     (S)             ;        ST(S):=-ST(S);
+        BVC     1$              ;        IF OVERFLOW THEN
+        JMP     OVERFL          ;          GOTO OVERFLOWERROR;
+                                ;      END;
+1$:     NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ABSREAL         ;PROCEDURE ABSREAL;
+                                ;  BEGIN
+ABSREA: ABSD    (S)             ;    ST:=ABS<REAL>(ST(S));
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  SUCCWORD        ;PROCEDURE SUCCWORD;
+                                ;  BEGIN
+SUCCWO: INC     (S)             ;    INCREMENT ST(S);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  PREDWORD        ;PROCEDURE PREDWORD;
+                                ;  BEGIN
+PREDWO: DEC     (S)             ;    DECREMENT ST(S);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CONVWORD        ;PROCEDURE CONVWORD;
+                                ;  BEGIN
+CONVWO: LDCID   (S)+,W          ;    W:=CONV(ST(S)); S:+2;
+        STD     W,-(S)          ;    S:-8; ST(S):=<REAL>W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  EMPTY           ;PROCEDURE EMPTY;
+                                ;  BEGIN
+EMPTY:  CLR     W               ;    CLEAR W;
+        TST     (S)             ;    TEST ST(S);
+        BNE     1$              ;    IF ZERO THEN
+        INC     W               ;      INCREMENT W;
+1$:     MOV     W,(S)           ;    ST(S):=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  ATTRIBUTE       ;PROCEDURE ATTRIBUTE;
+                                ;  BEGIN
+ATTRIB: MOV     (S),W           ;    W:=ST(S);
+        ASL     W               ;    DOUBLE W;
+        MOV     HEAD(W),(S)     ;    ST(S):=ST(W+HEAD);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  REALTIME        ;PROCEDURE REALTIME;
+                                ;  BEGIN
+REALTI: MOV     #REALT1,OPCODE  ;    ST(KERNELOP):=REALTIME1;
+        KNCALL                  ;    KERNELCALL;
+        MOV     ARG1,-(S)       ;    S:-2; ST(S):=ST(KERNELARG1);
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  DELAY           ;PROCEDURE DELAY;
+                                ;  BEGIN
+DELAY:  MOV     #DELAY1,OPCODE  ;    ST(KERNELOP):=DELAYGATE1;
+        MOV     (G),ARG1        ;    ST(KERNELARG1):=ST(G);
+        MOV     (S)+,ARG2       ;    ST(KERNELARG2):=ST(S); S:+2;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  CONTINUE        ;PROCEDURE CONTINUE;
+                                ;  BEGIN
+CONTIN: MOV     #CONTG1,OPCODE  ;    ST(KERNELOP):=CONTGATE1;
+        MOV     (G),ARG1        ;    ST(KERNELARG1):=ST(G);
+        MOV     (S)+,ARG2       ;    ST(KERNELARG2):=ST(S); S:+2;
+        KNCALL                  ;    KERNELCALL;
+        MOV     B,S             ;    S:=B;
+        TST     (S)+            ;    TEST ST(S); S:+2;
+        MOV     (S)+,W          ;    W:=ST(S); S:+2;
+        MOV     (S)+,B          ;    B:=ST(S); S:+2;
+        MOV     (S)+,G          ;    G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;    Q:=ST(S); S:+2;
+        MOV     W,S             ;    S:=W;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  IO              ;PROCEDURE IO;
+                                ;  BEGIN
+IO:     MOV     #IO1,OPCODE     ;    ST(KERNELOP):=IO1;
+        MOV     (S)+,ARG3       ;    ST(KERNELARG3):=ST(S); S:+2;
+        MOV     (S)+,ARG2       ;    ST(KERNELARG2):=ST(S); S:+2;
+        MOV     (S)+,ARG1       ;    ST(KERNELARG1):=ST(S); S:+2;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  START           ;PROCEDURE START;
+                                ;  BEGIN
+START:  MOV     #10.,CONT       ;    ST(CONTINUE):=10;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  STOP            ;PROCEDURE STOP;
+                                ;  BEGIN
+STOP:   MOV     #STOPJ1,OPCODE  ;    ST(KERNELOP):=STOPJOB1;
+        MOV     (S)+,ARG2       ;    ST(KERNELARG2):=ST(S); S:+2;
+        MOV     (S)+,ARG1       ;    ST(KERNELARG1):=ST(S); S:+2;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  SETHEAP         ;PROCEDURE SETHEAP;
+                                ;  BEGIN
+SETHEA: MOV     (S)+,HEAPTO     ;    ST(HEAPTOP):=ST(S); S:+2;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  WAIT            ;PROCEDURE WAIT;
+                                ;  BEGIN
+WAIT:   MOV     #WAIT1,OPCODE   ;    ST(KERNELOP):=WAIT1;
+        KNCALL                  ;    KERNELCALL;
+        NEXT                    ;  END;
+                                ;
+                                ;
+        .SBTTL  TERMINATED      ;TERMINATED:
+TERMIN: MOV     #0,RESULT       ;  ST(RESULT):=0;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  OVERFLOWERROR   ;OVERFLOWERROR:
+OVERFL: MOV     #1,RESULT       ;  ST(RESULT):=1;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  POINTERERROR    ;POINTERERROR:
+POINER: MOV     #2,RESULT       ;  ST(RESULT):=2;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  RANGEERROR      ;RANGEERROR:
+RANGER: MOV     #3,RESULT       ;  ST(RESULT):=3;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  VARIANTERROR    ;VARIANTERROR:
+VARIER: MOV     #4,RESULT       ;  ST(RESULT):=4;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  HEAPLIMIT       ;HEAPLIMIT:
+HEAPLI: MOV     #5,RESULT       ;  ST(RESULT):=5;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  STACKLIMIT      ;STACKLIMIT:
+STACKL: MOV     #6,RESULT       ;  ST(RESULT):=6;
+        JMP     EXCEPT          ;  GOTO EXCEPTION;
+                                ;
+                                ;
+        .SBTTL  EXCEPTION       ;EXCEPTION:
+EXCEPT: MOV     (B),LINE        ;  ST(LINE):=ST(B);
+        TST     JOB             ;  TEST ST(JOB);
+        BNE     1$              ;  IF ZERO THEN "INSYSTEM"
+                                ;    BEGIN
+        MOV     #SYSTE1,OPCODE  ;    ST(KERNELOP):=SYSTEMERROR;
+        KNCALL                  ;      KERNELCALL;
+        BR      2$              ;    END
+                                ;  ELSE "IN JOB"
+                                ;    BEGIN
+1$:     MOV     G,B             ;      B:=G;
+        MOV     B,S             ;      S:=B;
+        TST     (S)+            ;      TEST ST(S); S:+2;
+        MOV     (S)+,W          ;      W:=ST(S); S:+2;
+        MOV     (S)+,B          ;      B:=ST(S); S:+2;
+        MOV     (S)+,G          ;      G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;      Q:=ST(S); S:+2;
+        MOV     W,S             ;      S:=W;
+        CLR     JOB             ;      CLEAR ST(JOB);
+2$:     NEXT                    ;  END;
+                                ;
+                                ;
+INTEND= .
+        .END                    ;END THE ASSEMBLY
+      TEST ST(S); S:+2;
+        MOV     (S)+,W          ;      W:=ST(S); S:+2;
+        MOV     (S)+,B          ;      B:=ST(S); S:+2;
+        MOV     (S)+,G          ;      G:=ST(S); S:+2;
+        MOV     (S)+,Q          ;      Q:=ST(S); S:+2;
+        MOV     W,S             ;      S:=W;
+        CLR     JOB             ;      CLEAR ST(JOB);
+2$:     NEXT                    ;  END;
+                                ;
+                                ;
+INTEND= .
+    
