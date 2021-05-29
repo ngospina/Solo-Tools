@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 		rk05_file = fopen(argv[1], "rb");
 		if (rk05_file == NULL)
 		{
-			printf("Error opening rk05 image: %s\n", argv[2]);
+			printf("Error opening rk05 image: %s\n", argv[1]);
 		}
 		else
 		{
