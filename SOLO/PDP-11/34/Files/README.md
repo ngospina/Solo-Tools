@@ -1,6 +1,8 @@
 # PDP-11/34 SOLO files extracted from solo.dsk disk image
 
-**ASCII**: Text files  
-**CONCODE**: Concurrent programs  
-**SCRATCH**: Temporal files  
-**SEQCODE**: Sequential programs
+|Directory|Description        |
+|---------|-------------------|
+|ASCII    |Text files         |  
+|CONCODE  |Concurrent programs|  
+|SEQCODE  |Sequential programs|
+|SCRATCH  |Temporal files     |  
