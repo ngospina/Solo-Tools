@@ -1,6 +1,6 @@
 /*
    DskExtract.c
-   Copyright (c) 2009-2017. Gerardo Ospina
+   Copyright (c) 2009-2021. Gerardo Ospina
 
    This program extracts data from a simulated SOLO removable pack disk
 
@@ -26,9 +26,27 @@
    in this Software without prior written authorization from Gerardo Ospina.
 */
 
+/*
+    Requires the following directories defined in the directory that contains
+    the SOLO disk image to be processed
+
+    +--Files
+    |  +--ASCII
+    |  +--CONCODE
+    |  +--SEQCODE
+    |  +--SCRATCH
+    +--Segments
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+#if defined(_WIN32) || defined(WIN32)
+#define SEPARATOR '\\'
+#else
+#define SEPARATOR '/'
+#endif
 
 #define KERNEL_PAGE		0
 #define SOLO_PAGE		24
@@ -66,23 +84,28 @@ static char path[PATH_LENGTH];
 static char filename[PATH_LENGTH];
 static char *FileKind[] = {"EMPTY", "SCRATCH", "ASCII", "SEQCODE", "CONCODE"};
 
-static void MakePath(char* filepath)
+static void ExtractPath(char* filepath)
 {
 	int i;
 
 	strcpy(path, filepath);
-	for (i = strlen(path); i >= 0 && path[i] != '\\'; i--);
-	if (i >= 0)
-	{
-		for (i = i - 1; i >= 0 && path[i] != '\\'; i--);
-	}
-	path[i + 1] = '\0';
+	for (i = strlen(path); i >= 0 && path[i] != SEPARATOR; i--);
+    if (i == -1)
+    {
+        strcpy(path, ". ");
+        path[1] = SEPARATOR;
+    }
+    else
+    {
+    	path[i + 1] = '\0';
+    }
 }
 
 static void MakeSegmentName(char *name)
 {
 	strcpy(filename, path);
-	strcat(filename, "Segments\\");
+	strcat(filename, "Segments ");
+    filename[strlen(filename) - 1] = SEPARATOR;
 	strcat(filename, name);
 }
 
@@ -168,9 +191,11 @@ static void CopyFile(FILE *ifile, char *name, int page)
 static void MakeFileName(char *type, char *name)
 {
 	strcpy(filename, path);
-	strcat(filename, "Files\\");
+	strcat(filename, "Files ");
+    filename[strlen(filename) - 1] = SEPARATOR;
 	strcat(filename, type);
-	strcat(filename, "\\");
+	strcat(filename, " ");
+    filename[strlen(filename) - 1] = SEPARATOR;
 	strcat(filename, name);
 }
 
@@ -285,7 +310,7 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			MakePath(argv[1]);
+			ExtractPath(argv[1]);
 			Kernel(ifile);
 			SOLO(ifile);
 			otherOS(ifile);
