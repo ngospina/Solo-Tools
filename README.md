@@ -5,7 +5,7 @@ SOLO A single-user operating system developed by Per Brinch Hansen and his team 
 |---------|---------------------------------------------------------------|
 |SOLO     |PDP-11/34 and PDP-11/45 SOLO images and SOLO files and segments|
 
-Tools to manipulate SOLO tape and disk images and SOLO files
+Tools to manipulate SOLO tape and disk images
 
 |Tool      |Description                                                           |
 |----------|----------------------------------------------------------------------|
@@ -15,5 +15,11 @@ Tools to manipulate SOLO tape and disk images and SOLO files
 |DskMatch  |Match the pages of a dsk SOLO disk image and any other SOLO disk image| 
 |RK05toDsk |Create a dsk SOLO file image from a rk05 SOLO file image              |
 |TapExtract|Extract files from SOLO tape images                                   |
+
+Tools to manipulate SOLO files
+
+|Tool      |Description                                                           |
+|----------|----------------------------------------------------------------------|
+|          |                                                                      |
 
 
