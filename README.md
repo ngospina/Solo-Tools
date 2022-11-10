@@ -18,8 +18,8 @@ Tools to manipulate SOLO tape and disk images
 
 Tools to manipulate SOLO files
 
-|Tool      |Description                                                           |
-|----------|----------------------------------------------------------------------|
-|          |                                                                      |
+|Tool    |Description                              |
+|--------|-----------------------------------------|
+|CPDecode|Concurrent Pascal Virtual Machine Decoder|
 
 
