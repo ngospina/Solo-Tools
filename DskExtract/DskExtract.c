@@ -1,29 +1,29 @@
 /*
-   DskExtract.c
-   Copyright (c) 2009-2021. Gerardo Ospina
+	DskExtract.c
+	Copyright (c) 2009-2021. Gerardo Ospina
 
-   This program extracts data from a simulated SOLO removable pack disk
+	This program extracts data from a simulated SOLO removable pack disk
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+	Permission is hereby granted, free of charge, to any person obtaining a
+	copy of this software and associated documentation files (the "Software"),
+	to deal in the Software without restriction, including without limitation
+	the rights to use, copy, modify, merge, publish, distribute, sublicense,
+	and/or sell copies of the Software, and to permit persons to whom the
+	Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+	The above copyright notice and this permission notice shall be included in
+	all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   GERARDO OSPINA BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+	GERARDO OSPINA BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+	IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+	CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-   Except as contained in this notice, the name of Gerardo Ospina shall not
-   be used in advertising or otherwise to promote the sale, use or other dealings
-   in this Software without prior written authorization from Gerardo Ospina.
+	Except as contained in this notice, the name of Gerardo Ospina shall not
+	be used in advertising or otherwise to promote the sale, use or other dealings
+	in this Software without prior written authorization from Gerardo Ospina.
 */
 
 /*
@@ -42,43 +42,14 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "SOLO.h"
+
 #if defined(_WIN32) || defined(WIN32)
 #define SEPARATOR '\\'
 #else
 #define SEPARATOR '/'
 #endif
 
-#define KERNEL_PAGE		0
-#define SOLO_PAGE		24
-#define OTHER_OS_PAGE	88
-#define CATALOG_PAGE	154
-#define PAGE_LENGTH		512
-#define ID_LENGTH		12
-#define PATH_LENGTH		1024
-#define PAGEMAP_LENGTH	(PAGE_LENGTH / sizeof(unsigned short))
-#define FILEMAP_LENGTH	(PAGE_LENGTH / sizeof(TFileEntry))
-
-typedef struct {
-	unsigned char id[ID_LENGTH];
-	unsigned short kind, addr, protect;
-	unsigned short unused[5];
-	unsigned short key;
-	unsigned short searchlength;
-} TFileEntry;
-
-typedef unsigned char	TPage[PAGE_LENGTH];
-typedef unsigned short	TPageMap[PAGEMAP_LENGTH];
-typedef TFileEntry		TFileMap[FILEMAP_LENGTH];
-
-typedef union {
-	TPage page;
-	TFileMap filemap;
-} TCatalog;
-
-typedef union {
-	TPage page;
-	TPageMap pagemap;
-} TFile;
 
 static char path[PATH_LENGTH];
 static char filename[PATH_LENGTH];
