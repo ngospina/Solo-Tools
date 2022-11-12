@@ -1,6 +1,6 @@
 /*
-   Decoder.h
-   Copyright (c) 2009, 2016, 2022. Gerardo Ospina
+	Decoder.h
+	Copyright (c) 2009, 2016, 2022. Gerardo Ospina
 */
 
 #ifndef _DECODER_H_
