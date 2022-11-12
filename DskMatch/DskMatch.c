@@ -1,6 +1,6 @@
 /* 
 	DskMatch.c
-	Copyright (C) 2011-2017. Gerardo Ospina
+	Copyright (C) 2011-2017, 2022. Gerardo Ospina
 
 	This program matches the pages of a .dsk SOLO disk image and any other
 	SOLO disk image
@@ -33,15 +33,15 @@
 
 #include "LCS.h"
 
-#define PAGE_LENGTH	    512
+#define PAGE_LENGTH	512
 #define PAGEMAP_LENGTH	(PAGE_LENGTH / sizeof(unsigned short))
 
-#define ID_LENGTH		 12
+#define ID_LENGTH		12
 #define FILEMAP_LENGTH	(PAGE_LENGTH / sizeof(TFileEntry))
 
 #define CATALOG_PAGE	154
-#define PATH_LENGTH		1024
-#define DISK_PAGES		4800
+#define PATH_LENGTH	1024
+#define DISK_PAGES	4800
 
 #define EMPTY	0
 #define SCRATCH	1
@@ -72,7 +72,7 @@ typedef union {
 	TFileMap filemap;
 } TCatalog;
 
-#define DELTA		0
+#define DELTA 0
 
 static TPage dsk_pages[DISK_PAGES];
 static TPage image_pages[DISK_PAGES];
@@ -108,13 +108,15 @@ static void MakePath(char* filepath)
 	path[i + 1] = '\0';
 }
 
-static void write_dsk_map(FILE *out)
+static void write_dsk_map(FILE *out, char *source1, char *source2)
 {
 	unsigned int page;
 
 	fprintf(out, "/*\n\tDskImageMap.h\n*/\n\n");
 	fprintf(out, "#ifndef _DSKIMAGEMAP_H_\n\n");
 	fprintf(out, "#define _DSKIMAGEMAP_H_\n\n");
+	fprintf(out, "#define SOURCE_1 \"%s\"\n", source1);
+	fprintf(out, "#define SOURCE_2 \"%s\"\n\n", source2);
 	fprintf(out, "static int dsk_image_map[%d] = {", DISK_PAGES);
 	for (page = 0; page < DISK_PAGES; page++)
 	{
@@ -474,7 +476,7 @@ static unsigned int openFiles(FILE *files[6], char *dsk_filename, char *image_fi
 		files[i] = fopen(filename, i < 2 ? "rb" : "wb");
 		if (files[i] == NULL)
 		{
-			printf("Error %s file: %s\n", i < 2 ? "creating" : "opening", filename);
+			printf("Error %s file: %s\n", i < 2 ? "opening" : "creating", filename);
 			rc = 0;
 		}
 	}
@@ -519,7 +521,7 @@ int main(int argc, char *argv[])
 					fprintf(files[2], "Removable Pack Disks: %s %s\n", argv[1], argv[2]);
 					fprintf(files[3], "Removable Pack Disks: %s %s\n\n", argv[1], argv[2]);
 					match_dsk(files);
-					write_dsk_map(files[4]);
+					write_dsk_map(files[4], argv[1], argv[2]);
 					write_dsk_image_map(files[5]);
 				}
 			}
