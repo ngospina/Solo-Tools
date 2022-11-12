@@ -1,6 +1,6 @@
 /*
    Decoder.c
-   Copyright (c) 2009, 2016. Gerardo Ospina
+   Copyright (c) 2009, 2016, 2022. Gerardo Ospina
 
    Concurrent Pascal Virtual Machine Decoder
 
@@ -31,227 +31,224 @@
 
 #include "Decoder.h"
 
-static THeader header;
-static char *TABL99[] =
+void Trailer(FILE *ifile, TWord *pos)
 {
-/*   0 */ "","",
-/*   2 */ "CONSTADDR ","",
-/*   4 */ "LOCALADDR ","",
-/*   6 */ "GLOBALADDR","",
-/*   8 */ "PUSHCONST ","",
-/*  10 */ "PUSHLOCAL ","",
-/*  12 */ "PUSHGLOBAL","",
-/*  14 */ "PUSHIND   ","",
-/*  14 */ "PUSHBYTE  ","",
-/*  18 */ "PUSHREAL  ","",
-/*  20 */ "PUSHSET   ","",
-/*  22 */ "FIELD     ","",
-/*  24 */ "INDEX     ","",
-/*  26 */ "POINTER   ","",
-/*  28 */ "VARIANT   ","",
-/*  30 */ "RANGE     ","",
-/*  32 */ "COPYBYTE  ","",
-/*  34 */ "COPYWORD  ","",
-/*  36 */ "COPYREAL  ","",
-/*  38 */ "COPYSET   ","",
-/*  40 */ "COPYTAG   ","",
-/*  42 */ "COPYSTRUCT","",
-/*  44 */ "NEW       ","",
-/*  46 */ "NEWINIT   ","",
-/*  48 */ "NOT       ","",
-/*  50 */ "ANDWORD   ","",
-/*  52 */ "ANDSET    ","",
-/*  54 */ "ORWORD    ","",
-/*  56 */ "ORSET     ","",
-/*  58 */ "NEGWORD   ","",
-/*  60 */ "NEGREAL   ","",
-/*  62 */ "ADDWORD   ","",
-/*  64 */ "ADDREAL   ","",
-/*  66 */ "SUBWORD   ","",
-/*  68 */ "SUBREAL   ","",
-/*  70 */ "SUBSET    ","",
-/*  72 */ "MULWORD   ","",
-/*  74 */ "MULREAL   ","",
-/*  76 */ "DIVWORD   ","",
-/*  78 */ "DIVREAL   ","",
-/*  80 */ "MODWORD   ","",
-/*  82 */ "BUILDSET  ","",
-/*  84 */ "INSET     ","",
-/*  86 */ "LSWORD    ","",
-/*  88 */ "EQWORD    ","",
-/*  90 */ "GRWORD    ","",
-/*  92 */ "NLWORD    ","",
-/*  94 */ "NEWORD    ","",
-/*  96 */ "NGWORD    ","",
-/*  98 */ "LSREAL    ","",
-/* 100 */ "EQREAL    ","",
-/* 102 */ "GRREAL    ","",
-/* 104 */ "NLREAL    ","",
-/* 106 */ "NEREAL    ","",
-/* 108 */ "NGREAL    ","",
-/* 110 */ "EQSET     ","",
-/* 112 */ "NLSET     ","",
-/* 114 */ "NESET     ","",
-/* 116 */ "NGSET     ","",
-/* 118 */ "LSSTRUCT  ","",
-/* 120 */ "EQSTRUCT  ","",
-/* 122 */ "GRSTRUCT  ","",
-/* 124 */ "NLSTRUCT  ","",
-/* 126 */ "NESTRUCT  ","",
-/* 128 */ "NGSTRUCT  ","",
-/* 130 */ "FUNCVALUE ","",
-/* 132 */ "JUMP      ","",
-/* 134 */ "FALSEJUMP ","",
-/* 136 */ "CASEJUMP  ","",
-/* 138 */ "INITVAR   ","",
-/* 140 */ "CALL      ","",
-/* 142 */ "CALLSYS   ","",
-/* 144 */ "ENTER     ","",
-/* 146 */ "EXIT      ","",
-/* 148 */ "ENTERPROG ","",
-/* 150 */ "EXITPROG  ","",
-/* 152 */ "BEGINCLASS","",
-/* 154 */ "ENDCLASS  ","",
-/* 156 */ "ENTERCLASS","",
-/* 158 */ "EXITCLASS ","",
-/* 160 */ "BEGINMON  ","",
-/* 162 */ "ENDMON    ","",
-/* 164 */ "ENTERMON  ","",
-/* 166 */ "EXITMON   ","",
-/* 168 */ "BEGINPROC ","",
-/* 170 */ "ENDPROC   ","",
-/* 172 */ "ENTERPROC ","",
-/* 174 */ "EXITPROC  ","",
-/* 176 */ "POP       ","",
-/* 178 */ "NEWLINE   ","",
-/* 180 */ "INCRWORD  ","",
-/* 182 */ "DECRWORD  ","",
-/* 184 */ "INITCLASS ","",
-/* 186 */ "INITMON   ","",
-/* 188 */ "INITPROC  ","",
-/* 190 */ "PUSHLABEL ","",
-/* 192 */ "CALLPROG  ","",
-/* 194 */ "TRUNCREAL ","",
-/* 196 */ "ABSWORD   ","",
-/* 198 */ "ABSREAL   ","",
-/* 200 */ "SUCCWORD  ","",
-/* 202 */ "PREDWORD  ","",
-/* 204 */ "CONVWORD  ","",
-/* 206 */ "EMPTY     ","",
-/* 208 */ "ATTRIBUTE ","",
-/* 210 */ "REALTIME  ","",
-/* 212 */ "DELAY     ","",
-/* 214 */ "CONTINUE  ","",
-/* 216 */ "IO        ","",
-/* 218 */ "START     ","",
-/* 220 */ "STOP      ","",
-/* 222 */ "SETHEAP   ","",
-/* 224 */ "WAIT      "
-};
-
-static FILE *ifile;
-static unsigned short int pos, op, op1, op2, op3, op4;
-
-void Trailer(void)
-{
+	TWord word;
 	int n;
 
 	printf("\nTrailer:\n");
-	pos += sizeof(THeader);
-	n = fread(&op, sizeof(unsigned short int), 1, ifile);
+	n = fread(&word, sizeof(TWord), 1, ifile);
 	while (n == 1)
 	{
-		printf("  %05d: [%5d]\n", pos, op);
-		pos += sizeof(unsigned short int);
-		n = fread(&op, sizeof(unsigned short int), 1, ifile);
+		*pos += sizeof(TWord);
+		printf("  %05d: [%5d]\n", *pos, word);
+	    n = fread(&word, sizeof(TWord), 1, ifile);
 	}
 }
 
-void Constants(void)
+void Constants(FILE *ifile, TWord progLen, TWord *pos)
 {
+	int max = progLen + sizeof(THeader) - sizeof(TWord);
+	TWord word, low, high;
 	int n;
-	unsigned short int low,high;
 
 	printf("\nConstants:\n");
-	while (pos < header.ProgLen)
+	while (*pos < max)
 	{
-		n = fread(&op, sizeof(unsigned short int), 1, ifile);
-		high = (op & 0xFF00) >> 8;
-		low = op & 0xFF;
+    	fread(&word, sizeof(TWord), 1, ifile);
+		*pos += sizeof(TWord);
+		high = (word & 0xFF00) >> 8;
+		low = word & 0xFF;
 		if (low >= ' ' && low <= '~')
 		{
-			printf("  %05d: [%05d:%3d] %c\n", sizeof(THeader) + pos, pos, low, low);
+			printf("  %05d: [%05d:%3d] %c\n", *pos, *pos - sizeof(THeader), low, low);
 		}
 		else
 		{
-			printf("  %05d: [%05d:%3d]\n", sizeof(THeader) + pos, pos, low);
+			printf("  %05d: [%05d:%3d]\n", *pos, *pos - sizeof(THeader), low);
 		}
 		if (high >= ' ' && high <= '~')
 		{
-			printf("  %05d: [%05d:%3d] %c\n", sizeof(THeader) + pos + 1, pos + 1, high, high);
+			printf("  %05d: [%05d:%3d] %c\n", *pos + 1, *pos - sizeof(THeader) + 1, high, high);
 		}
 		else
 		{
-			printf("  %05d: [%05d:%3d]\n", sizeof(THeader) + pos + 1, pos + 1, high);
+			printf("  %05d: [%05d:%3d]\n", *pos + 1, *pos - sizeof(THeader) + 1, high);
 		}
-		pos += sizeof(unsigned short int);
 	}
 }
 
-void Program(void)
+void Program(FILE *ifile, TWord codeLen, TWord *pos)
 {
+	static char *TABL99[] =
+	{
+		/*   0 */ "","",
+		/*   2 */ "CONSTADDR ","",
+		/*   4 */ "LOCALADDR ","",
+		/*   6 */ "GLOBALADDR","",
+		/*   8 */ "PUSHCONST ","",
+		/*  10 */ "PUSHLOCAL ","",
+		/*  12 */ "PUSHGLOBAL","",
+		/*  14 */ "PUSHIND   ","",
+		/*  14 */ "PUSHBYTE  ","",
+		/*  18 */ "PUSHREAL  ","",
+		/*  20 */ "PUSHSET   ","",
+		/*  22 */ "FIELD     ","",
+		/*  24 */ "INDEX     ","",
+		/*  26 */ "POINTER   ","",
+		/*  28 */ "VARIANT   ","",
+		/*  30 */ "RANGE     ","",
+		/*  32 */ "COPYBYTE  ","",
+		/*  34 */ "COPYWORD  ","",
+		/*  36 */ "COPYREAL  ","",
+		/*  38 */ "COPYSET   ","",
+		/*  40 */ "COPYTAG   ","",
+		/*  42 */ "COPYSTRUCT","",
+		/*  44 */ "NEW       ","",
+		/*  46 */ "NEWINIT   ","",
+		/*  48 */ "NOT       ","",
+		/*  50 */ "ANDWORD   ","",
+		/*  52 */ "ANDSET    ","",
+		/*  54 */ "ORWORD    ","",
+		/*  56 */ "ORSET     ","",
+		/*  58 */ "NEGWORD   ","",
+		/*  60 */ "NEGREAL   ","",
+		/*  62 */ "ADDWORD   ","",
+		/*  64 */ "ADDREAL   ","",
+		/*  66 */ "SUBWORD   ","",
+		/*  68 */ "SUBREAL   ","",
+		/*  70 */ "SUBSET    ","",
+		/*  72 */ "MULWORD   ","",
+		/*  74 */ "MULREAL   ","",
+		/*  76 */ "DIVWORD   ","",
+		/*  78 */ "DIVREAL   ","",
+		/*  80 */ "MODWORD   ","",
+		/*  82 */ "BUILDSET  ","",
+		/*  84 */ "INSET     ","",
+		/*  86 */ "LSWORD    ","",
+		/*  88 */ "EQWORD    ","",
+		/*  90 */ "GRWORD    ","",
+		/*  92 */ "NLWORD    ","",
+		/*  94 */ "NEWORD    ","",
+		/*  96 */ "NGWORD    ","",
+		/*  98 */ "LSREAL    ","",
+		/* 100 */ "EQREAL    ","",
+		/* 102 */ "GRREAL    ","",
+		/* 104 */ "NLREAL    ","",
+		/* 106 */ "NEREAL    ","",
+		/* 108 */ "NGREAL    ","",
+		/* 110 */ "EQSET     ","",
+		/* 112 */ "NLSET     ","",
+		/* 114 */ "NESET     ","",
+		/* 116 */ "NGSET     ","",
+		/* 118 */ "LSSTRUCT  ","",
+		/* 120 */ "EQSTRUCT  ","",
+		/* 122 */ "GRSTRUCT  ","",
+		/* 124 */ "NLSTRUCT  ","",
+		/* 126 */ "NESTRUCT  ","",
+		/* 128 */ "NGSTRUCT  ","",
+		/* 130 */ "FUNCVALUE ","",
+		/* 132 */ "JUMP      ","",
+		/* 134 */ "FALSEJUMP ","",
+		/* 136 */ "CASEJUMP  ","",
+		/* 138 */ "INITVAR   ","",
+		/* 140 */ "CALL      ","",
+		/* 142 */ "CALLSYS   ","",
+		/* 144 */ "ENTER     ","",
+		/* 146 */ "EXIT      ","",
+		/* 148 */ "ENTERPROG ","",
+		/* 150 */ "EXITPROG  ","",
+		/* 152 */ "BEGINCLASS","",
+		/* 154 */ "ENDCLASS  ","",
+		/* 156 */ "ENTERCLASS","",
+		/* 158 */ "EXITCLASS ","",
+		/* 160 */ "BEGINMON  ","",
+		/* 162 */ "ENDMON    ","",
+		/* 164 */ "ENTERMON  ","",
+		/* 166 */ "EXITMON   ","",
+		/* 168 */ "BEGINPROC ","",
+		/* 170 */ "ENDPROC   ","",
+		/* 172 */ "ENTERPROC ","",
+		/* 174 */ "EXITPROC  ","",
+		/* 176 */ "POP       ","",
+		/* 178 */ "NEWLINE   ","",
+		/* 180 */ "INCRWORD  ","",
+		/* 182 */ "DECRWORD  ","",
+		/* 184 */ "INITCLASS ","",
+		/* 186 */ "INITMON   ","",
+		/* 188 */ "INITPROC  ","",
+		/* 190 */ "PUSHLABEL ","",
+		/* 192 */ "CALLPROG  ","",
+		/* 194 */ "TRUNCREAL ","",
+		/* 196 */ "ABSWORD   ","",
+		/* 198 */ "ABSREAL   ","",
+		/* 200 */ "SUCCWORD  ","",
+		/* 202 */ "PREDWORD  ","",
+		/* 204 */ "CONVWORD  ","",
+		/* 206 */ "EMPTY     ","",
+		/* 208 */ "ATTRIBUTE ","",
+		/* 210 */ "REALTIME  ","",
+		/* 212 */ "DELAY     ","",
+		/* 214 */ "CONTINUE  ","",
+		/* 216 */ "IO        ","",
+		/* 218 */ "START     ","",
+		/* 220 */ "STOP      ","",
+		/* 222 */ "SETHEAP   ","",
+		/* 224 */ "WAIT      "
+	};
+
+	int max = codeLen + sizeof(THeader) - sizeof(TWord);
+	TWord op, op1, op2, op3, op4;
 	int i, n;
 
-	printf("\nCode:\n"),
-	pos = 0;
-	while (pos < header.CodeLen)
+	printf("\nCode:\n");
+	while (*pos < max)
 	{
-		n = fread(&op, sizeof(unsigned short int), 1, ifile);
-		printf("  %05d: [%05d:%3d]", sizeof(THeader) + pos, pos, op);
-		if (op > 0 && op < 225)
+    	fread(&op, sizeof(TWord), 1, ifile);
+		*pos += sizeof(TWord);
+		printf("  %05d: [%05d:%3d]", *pos, *pos - sizeof(THeader), op);
+		if (op > 1 && op < 225)
 		{
 			printf(" %s", TABL99[op]);
 		}
-		pos += sizeof(unsigned short int);
 		switch (op)
 		{
-
 			/* Required by SOLO */
 
 			case JUMP:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case ENTERCLASS:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case LOCALADDR:
 			case PUSHGLOBAL:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case COPYWORD:
 				printf("\n");
 				break;
 			case GLOBALADDR:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;			
 			case MODWORD:
 				printf("\n");
 				break;
 			case PUSHCONST:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;			
 			case ADDWORD:
 			case EXITCLASS:
@@ -260,39 +257,39 @@ void Program(void)
 				printf("\n");
 				break;
 			case BEGINCLASS:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case ENDCLASS:
 			case ANDSET:
 				printf("\n");
 				break;
 			case ENTERMON:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case FALSEJUMP:
 			case FIELD:
 			case FUNCVALUE:
 			case CALL:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case INDEX:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				pos += 3 * sizeof(unsigned short int);
-				printf(" %d %d %d\n", op1, op2, op3);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				*pos += 3 * sizeof(TWord);
+				printf(" %hu %hu %hu\n", op1, op2, op3);
 				break;
 			case DELAY:
 			case EXITMON:
@@ -300,18 +297,18 @@ void Program(void)
 				printf("\n");
 				break;
 			case BEGINMON:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case INITCLASS:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 			case ENDMON:
 				printf("\n");
@@ -319,20 +316,20 @@ void Program(void)
 			case PUSHLOCAL:
 			case NESTRUCT:
 			case COPYSTRUCT:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case COPYBYTE:
 				printf("\n");
 				break;
 			case ENTER:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case IO:
 			case EXIT:
@@ -342,10 +339,10 @@ void Program(void)
 				printf("\n");
 				break;
 			case RANGE:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 			case GRWORD:
 			case PUSHIND:
@@ -353,9 +350,9 @@ void Program(void)
 				break;
 			case POP:
 			case CONSTADDR:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case NGWORD:
 			case ANDWORD:
@@ -365,9 +362,9 @@ void Program(void)
 				printf("\n");
 				break;
 			case EQSTRUCT:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case INCRWORD:
 			case LSWORD:
@@ -376,59 +373,59 @@ void Program(void)
 				printf("\n");
 				break;
 			case PUSHLABEL:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case CALLPROG:
 				printf("\n");
 				break;
 			case ENTERPROC:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case EXITPROC:
 				printf("\n");
 				break;
 			case BEGINPROC:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case ENDPROC:
 			case WAIT:
 				printf("\n");
 				break;
 			case CASEJUMP:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				for (i = 0; i <= op2; i++)
 				{
-					fread(&op3, sizeof(unsigned short int), 1, ifile);
-					pos += sizeof(unsigned short int);
+					fread(&op3, sizeof(TWord), 1, ifile);
+					*pos += sizeof(TWord);
 					printf(" %d", op3);
 				}
 				printf("\n");
 				break;
 			case INITMON:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 			case INITPROC:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 
 			/* Required by JOBSTREAM */
@@ -467,20 +464,20 @@ void Program(void)
 			/* Required by PIPELINE */
 
 			case NEWLINE:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 
 			/* Required by Sequential Pascal Programs */
 
 			case ENTERPROG:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op3, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op4, sizeof(unsigned short int), 1, ifile);
-				pos += 4 * sizeof(unsigned short int);
-				printf(" %d %d %d %d\n", op1, op2, op3, op4);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				fread(&op3, sizeof(TWord), 1, ifile);
+				fread(&op4, sizeof(TWord), 1, ifile);
+				*pos += 4 * sizeof(TWord);
+				printf(" %hu %hu %hu %hu\n", op1, op2, op3, op4);
 				break;
 			case EXITPROG:
 				printf("\n");
@@ -489,9 +486,9 @@ void Program(void)
 			/* Required by BACKUP */
 
 			case CALLSYS:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case SUBSET:
 			case EQSET:
@@ -499,15 +496,15 @@ void Program(void)
 				break;
 			case INITVAR:
 			case COPYTAG:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 			case VARIANT:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 
 			/* Required by CARDS */
@@ -519,10 +516,10 @@ void Program(void)
 			/* Required by CPASS1 */
 
 			case NEW:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 			case NGREAL:
 			case GRREAL:
@@ -539,10 +536,10 @@ void Program(void)
 			/* Required by CPASS3 */
 
 			case NEWINIT:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				n = fread(&op2, sizeof(unsigned short int), 1, ifile);
-				pos += 2 * sizeof(unsigned short int);
-				printf(" %d %d\n", op1, op2);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				fread(&op2, sizeof(TWord), 1, ifile);
+				*pos += 2 * sizeof(TWord);
+				printf(" %hu %hu\n", op1, op2);
 				break;
 
 			/* Required by FILE */
@@ -552,37 +549,43 @@ void Program(void)
 				printf("\n");
 				break;
 
+			/* Required by LIST */
+
 			case NGSTRUCT:
 			case LSSTRUCT:
-				n = fread(&op1, sizeof(unsigned short int), 1, ifile);
-				pos += sizeof(unsigned short int);
-				printf(" %d\n", op1);
+				fread(&op1, sizeof(TWord), 1, ifile);
+				*pos += sizeof(TWord);
+				printf(" %hu\n", op1);
 				break;
 
 			default:
-				printf(" UNRECOGNIZED \n");
+				printf(" UNRECOGNIZED %d\n", op);
 				exit(0);
 		}
 	}
 }
 
-void Header(void)
+void Header(FILE *ifile, THeader *header, TWord *pos)
 {
-	fread(&header, sizeof(THeader), 1, ifile);
+	fread(header, sizeof(THeader), 1, ifile);
+	*pos += sizeof(THeader) - sizeof(TWord);
 	printf("Header:\n");
-	printf("  %05d: %d %d %d %d\n\n", 0, header.ProgLen, header.CodeLen, header.StackLen, header.VarLen);
-	printf("  Program  Length: %5d byte(s)\n", header.ProgLen);
-	printf("  Code     Length: %5d byte(s)\n", header.CodeLen);
-	printf("  Stack    Length: %5d byte(s)\n", header.StackLen);
-	printf("  Variable Length: %5d byte(s)\n", header.VarLen);
+	printf("  %05hu: %hu %hu %hu %hu\n\n", 0, header->ProgLen, header->CodeLen, header->StackLen, header->VarLen);
+	printf("  Program  Length: %5hu byte(s)\n", header->ProgLen);
+	printf("  Code     Length: %5hu byte(s)\n", header->CodeLen);
+	printf("  Stack    Length: %5hu byte(s)\n", header->StackLen);
+	printf("  Variable Length: %5hu byte(s)\n", header->VarLen);
 }
 
-void VirtualCode(void)
+void VirtualCode(FILE *ifile)
 {
-	Header();
-	Program();
-	Constants();
-	Trailer();
+	TWord pos = 0;
+	THeader header;
+
+	Header(ifile, &header, &pos);
+	Program(ifile, header.CodeLen, &pos);
+	Constants(ifile, header.ProgLen, &pos);
+	Trailer(ifile, &pos);
 }
 
 int main(int argc, char *argv[])
@@ -593,7 +596,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		ifile = fopen (argv[1], "rb");
+		FILE *ifile = fopen (argv[1], "rb");
 		if (ifile == NULL) 
 		{
 			printf ("Error opening file: %s\n", argv[1]);
@@ -601,7 +604,7 @@ int main(int argc, char *argv[])
 		else
 		{
 			printf("Concurrent Pascal Virtual Machine Decoder\nFile: %s\n\n", argv[1]);
-			VirtualCode();
+			VirtualCode(ifile);
 			fclose(ifile);
 		}
 	}	return EXIT_SUCCESS;

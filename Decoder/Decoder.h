@@ -1,9 +1,9 @@
 /*
-	Decoder.h
-	Copyright (c) 2009, 2016. Gerardo Ospina
+   Decoder.h
+   Copyright (c) 2009, 2016, 2022. Gerardo Ospina
 */
 
-#if !defined(_DECODER_H_)
+#ifndef _DECODER_H_
 
 #define _DECODER_H_
 
@@ -120,12 +120,14 @@
 #define SETHEAP    222
 #define WAIT       224
 
+typedef unsigned short int TWord;
+
 typedef struct
 {
-	unsigned short int ProgLen;
-	unsigned short int CodeLen;
-	unsigned short int StackLen;
-	unsigned short int VarLen;
+	TWord ProgLen;
+	TWord CodeLen;
+	TWord StackLen;
+	TWord VarLen;
 } THeader;
 
 #endif /* _DECODER_H_ */
