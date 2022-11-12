@@ -30,43 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAX_FILES		8
-
-#define CATALOG_PAGE	154
-#define PAGE_LENGTH		512
-#define PAGEMAP_LENGTH	(PAGE_LENGTH / sizeof(unsigned short))
-
-#define ID_LENGTH		12
-#define FILEMAP_LENGTH	(PAGE_LENGTH / sizeof(TFileEntry))
-
-#define PATH_LENGTH		256
-
-typedef unsigned char	TPage[PAGE_LENGTH];
-typedef unsigned short	TPageMap[PAGEMAP_LENGTH];
-
-typedef union {
-	TPage    page;
-	TPageMap pagemap;
-} TFile;
-
-typedef struct {
-	unsigned char id[ID_LENGTH];
-	unsigned short kind, addr, protect;
-	unsigned short unused[5];
-	unsigned short key;
-	unsigned short searchlength;
-} TFileEntry;
-
-typedef TFileEntry TFileMap[FILEMAP_LENGTH];
-
-typedef union {
-	TPage page;
-	TFileMap filemap;
-} TCatalog;
-
-static char *FileKind[] = {"EMPTY", "SCRATCH", "ASCII", "SEQCODE", "CONCODE"};
-
-static int file = 0;
+#include "SOLO.h"
 
 static void PageMap(FILE *ifile, FILE *ofile, int page)
 {
@@ -90,10 +54,12 @@ static void PageMap(FILE *ifile, FILE *ofile, int page)
 	}
 }
 
-static void ShowFile(FILE *ifile, FILE *ofile, TFileEntry entry)
+static void ShowFile(FILE *ifile, FILE *ofile, TFileEntry entry, int *files)
 {
 	int i, j;
 	char name[PATH_LENGTH];
+	char *FileKind[] = {"EMPTY", "SCRATCH", "ASCII", "SEQCODE", "CONCODE"};
+
 
 	if (entry.id[0] != ' ')
 	{
@@ -108,14 +74,12 @@ static void ShowFile(FILE *ifile, FILE *ofile, TFileEntry entry)
 		}
 		name[j] = '\0';
 		fprintf(ofile, "    (%4d) [%7s] %s\n", entry.addr, FileKind[entry.kind], name);
-		if (file < MAX_FILES) {
-			PageMap(ifile, ofile, entry.addr);
-			file++;
-		}
+		PageMap(ifile, ofile, entry.addr);
+		(*files)++;
 	}
 }
 
-static void CatalogPage(FILE *ifile, FILE *ofile, unsigned short page)
+static void CatalogPage(FILE *ifile, FILE *ofile, unsigned short page, int *files)
 {
 	TCatalog catalog;
 	int i, k, fpos;
@@ -125,7 +89,7 @@ static void CatalogPage(FILE *ifile, FILE *ofile, unsigned short page)
 	k = fread (catalog.page, 1, PAGE_LENGTH, ifile);
 	for (i = 0; i < FILEMAP_LENGTH; i++)
 	{
-		ShowFile(ifile, ofile, catalog.filemap[i]);
+		ShowFile(ifile, ofile, catalog.filemap[i], files);
 	}
 }
 
@@ -133,6 +97,8 @@ static void Catalog(FILE *ifile, FILE *ofile)
 {
 	TFile catalog;
 	int i, k, fpos;
+	int files = 0;
+
 
 	fpos = CATALOG_PAGE * PAGE_LENGTH;
 	fseek (ifile, fpos, SEEK_SET);
@@ -143,12 +109,13 @@ static void Catalog(FILE *ifile, FILE *ofile)
 	}
 	else
 	{
-		printf("Number of pages: %4d\n", catalog.pagemap[0]);
+		fprintf(ofile, "Number of pages: %4d\n", catalog.pagemap[0]);
 		for (i = 1; i <= catalog.pagemap[0]; i++)
 		{
 			fprintf(ofile, "  pagemap[%3d] = %4d\n", i, catalog.pagemap[i]);
-			CatalogPage(ifile, ofile, catalog.pagemap[i]);
+			CatalogPage(ifile, ofile, catalog.pagemap[i], &files);
 		}
+		fprintf(ofile, "Number of files: %4d\n", files);
 	}
 }
 
