@@ -23,8 +23,8 @@ Tools to manipulate SOLO disk images
 
 Tools to manipulate SOLO files
 
-|Tool   |Description                              |
-|-------|-----------------------------------------|
-|Decoder|Concurrent Pascal Virtual Machine Decoder|
-
-
+|Tool         |Description                                              |
+|-------------|---------------------------------------------------------|
+|Decoder      |Concurrent Pascal Virtual Machine Decoder                |
+|KernelMerge34|Merges in a single file the PDP-11/34 kernel source files|
+|KernelMerge45|Merges in a single file the PDP-11/45 kernel source files|
