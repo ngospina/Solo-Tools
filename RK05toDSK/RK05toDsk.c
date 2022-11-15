@@ -1,6 +1,6 @@
 /*
 	RK05toDsk.c
-	Copyright (C) 2016, 2017. Gerardo Ospina
+	Copyright (C) 2016-2017, 2022. Gerardo Ospina
 
 	This program creates a dsk SOLO file image from a rk05 SOLO file image
 
@@ -30,16 +30,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "SOLO.h"
 #include "DskRK05Map.h"
 
-#define PAGE_LENGTH		512
-#define DISK_PAGES		4800
-
-typedef unsigned char TPage[PAGE_LENGTH];
-
-static TPage rk05_pages[DISK_PAGES];
-
-static void read_rk05(FILE *rk05_file, unsigned int *n_rk05_pages)
+static void read_rk05(FILE *rk05_file, unsigned int *n_rk05_pages, TPage *rk05_pages)
 {
 	int k;
 	unsigned int i;
@@ -59,11 +53,10 @@ static void read_rk05(FILE *rk05_file, unsigned int *n_rk05_pages)
 	}
 }
 
-void create_dsk(char *filename)
+void create_dsk(char *filename, TPage *rk05_pages)
 {
 	FILE *dsk_file;
 	char name[1024];
-	int i, k;
 
 	strcpy(name, filename);
 	strcat(name, ".dsk");
@@ -74,7 +67,9 @@ void create_dsk(char *filename)
 	}
 	else
 	{
-		printf("Removable Pack Disk: %s\n", name);
+		int i, k;
+
+		printf("Removable Pack Disk Image: %s\n", name);
 		for (i = 0; i < DISK_PAGES; i++)
 		{
 			k = fwrite(rk05_pages[dsk_rk05_map[i]], 1, PAGE_LENGTH, dsk_file);
@@ -89,28 +84,34 @@ void create_dsk(char *filename)
 
 int main(int argc, char *argv[])
 {
-	FILE *rk05_file;
-	unsigned int n_rk05_pages;
-
 	if ((argc != 2) || (argv[0] == NULL))
 	{
-		printf("Usage is: RK05toDsk <rk05 image>\n");
+		printf("Usage is: RK05toDsk <RK05 image>\n");
 	}
 	else
 	{
+		FILE *rk05_file;
+
 		rk05_file = fopen(argv[1], "rb");
 		if (rk05_file == NULL)
 		{
-			printf("Error opening rk05 image: %s\n", argv[1]);
+			printf("Error opening RK05 image: %s\n", argv[1]);
 		}
 		else
 		{
-			read_rk05(rk05_file, &n_rk05_pages);
+			unsigned int n_rk05_pages;
+			TPage rk05_pages[DISK_PAGES];
+
+			read_rk05(rk05_file, &n_rk05_pages, rk05_pages);
 			fclose(rk05_file);
 			if (n_rk05_pages == DISK_PAGES)
 			{
-				printf("rk05 Removable Pack Disk: %s\n", argv[1]);
-				create_dsk(argv[1]);
+				printf("RK05 Removable Pack Disk Image: %s\n", argv[1]);
+				create_dsk(argv[1], rk05_pages);
+			}
+			else
+			{
+				printf("Error: (%s) Invalid RK05 image\n", argv[1]);
 			}
 		}
 	}
