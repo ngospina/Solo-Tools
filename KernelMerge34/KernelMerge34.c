@@ -39,7 +39,7 @@
 #define LENGTH		1024
 #define PATH_LENGTH	1024
 
-static void make_paths(char * path, unsigned char *out_path)
+static void make_paths(unsigned char * path, unsigned char *out_path)
 {
 	unsigned int len = strlen(path);
 
@@ -73,7 +73,7 @@ static void close_files(FILE *ifile[4], FILE **ofile)
 	}
 }
 
-static int open_files(FILE *ifile[4], FILE **ofile, char *name, unsigned char *out_path, char *names[])
+static int open_files(FILE *ifile[4], FILE **ofile, unsigned char *name, unsigned char *out_path, unsigned char *names[4])
 {
 	unsigned int i;
 	unsigned int opened = 0;
@@ -120,17 +120,17 @@ static void read_line(FILE *ifile, 	unsigned char *line, unsigned int *lineno)
 	fgets(line, LENGTH, ifile);
 	if (line[0] == 12)
 	{
-		strcpy(line, line + 1);
+		memmove(line, line + 1, strlen(line));
 	}
 	(*lineno)++;
 }
 
-static void write_line(char *line, FILE *ofile)
+static void write_line(unsigned char *line, FILE *ofile)
 {
 	fprintf(ofile, "%s", line);
 }
 
-static void write_comment_line(char *line, FILE *ofile)
+static void write_comment_line(unsigned char *line, FILE *ofile)
 {
 	fprintf(ofile, "                                   ;\"%s\"\n", line);
 }
@@ -201,13 +201,13 @@ static void insert_lines_kernel4(FILE *ofile, unsigned int lineno)
 	{
 		write_line("        .PAGE\n", ofile);
 	}
-	else if (lineno == 5580 || lineno == 5103 || lineno == 5038 ||
-		lineno == 4998 || lineno == 4969 || lineno == 4959)
+	else if (lineno == 5580 || lineno == 5103 || lineno == 5038 || lineno == 4998 || lineno == 4969 ||
+		lineno == 4959)
 	{
 		write_line("                                ;    BEGIN\n", ofile);
 	}
-	else if (lineno == 5581 || lineno == 5104 || lineno == 5039 ||
-		lineno == 4999 || lineno == 4970 || lineno == 4960)
+	else if (lineno == 5581 || lineno == 5104 || lineno == 5039 || lineno == 4999 || lineno == 4970 ||
+		lineno == 4960)
 	{
 		write_line("                                ;    END;\n", ofile);
 	}
@@ -230,22 +230,59 @@ static void insert_lines_kernel4(FILE *ofile, unsigned int lineno)
 	}
 }
 
-static void adjust_line_kernel1(char *line)
+static void adjust_line_kernel1(unsigned char *line)
 {
-	char *p;
+	unsigned char *p;
 
+	p = strstr(line, "KNLPSW  =      PSCMDK+PSPRT7	   ;   K");
+	if (p != NULL)
+	{
+		memmove(p + 40, p + 36, strlen(p) - 35);
+		strncpy(p + 33, "<01>   ", 7);
+	}
+	p = strstr(line, "8 STACK");
+	if (p != NULL)
+	{
+		memmove(p + 3, p + 1, strlen(p) - 1);
+		strncpy(p, "TWO", 3);
+	}
+	p = strstr(line, "STATUS, RETURN");
+	if (p != NULL)
+	{
+		strncpy(p + 6, " AND RETURN OF THE INI-\n", 24);
+	}
+	p = strstr(line, "OF THE INITIAL");
+	if (p != NULL)
+	{
+		memmove(p, p + 10, strlen(p) - 0);
+	}
 	p = strstr(line, "& REGISTERS");
 	if (p != NULL)
 	{
 		memmove(p + 3, p + 1, strlen(p));
 		strncpy(p, "AND", 3);
 	}
+	p = strstr(line, "INIT 40");
+	if (p != NULL)
+	{
+		strncpy(p + 5, "24", 2);
+	}
+	p = strstr(line, "READ(DISK0, 0, 1");
+	if (p != NULL)
+	{
+		p[15] = '0';
+	}
 }
 
-static void adjust_line_kernel2(char *line)
+static void adjust_line_kernel2(unsigned char *line)
 {
-	char *p;
+	unsigned char *p;
 
+	p = strstr(line, "; MACRO ");
+	if (p != NULL)
+	{
+		memmove(p + 2, p + 8, strlen(p) - 7);
+	}
 	p = strstr(line, "VAR READY");
 	if (p != NULL)
 	{
@@ -273,10 +310,21 @@ static void adjust_line_kernel2(char *line)
 	}
 }
 
-static void adjust_line_kernel3(char *line)
+static void adjust_line_kernel3(unsigned char *line)
 {
-	char *p;
+	unsigned char *p;
 
+	p = strstr(line, "SEARCHREG := DISKADDR");
+	if (p != NULL)
+	{
+		memmove(p + 22, p + 21, strlen(p) - 20);
+		p[21] = ';';
+	}
+	p = strstr(line, "+ UNIT;");
+	if (p != NULL)
+	{
+		memmove(p, p + 7, strlen(p) - 6);
+	}
 	p = strstr(line, "CURSOR@.(.I.)");
 	if (p != NULL)
 	{
@@ -290,9 +338,9 @@ static void adjust_line_kernel3(char *line)
 	}
 }
 
-static void adjust_line_kernel4(char *line)
+static void adjust_line_kernel4(unsigned char *line)
 {
-	char *p;
+	unsigned char *p;
 
 	p = strstr(line, "ST(S):  S");
 	if (p != NULL)
@@ -386,7 +434,7 @@ static void adjust_line_kernel4(char *line)
 	}
 }
 
-static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, char *name, unsigned int *lineno)
+static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsigned char *name, unsigned int *lineno)
 {
 	int extract = 1;
 
@@ -405,7 +453,7 @@ static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, char *n
 	}
 }
 
-static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, char *name, unsigned int *lineno)
+static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsigned char *name, unsigned int *lineno)
 {
 	int extract = 1;
 
@@ -423,7 +471,7 @@ static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, char *n
 	}
 }
 
-static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, char *name, unsigned int *lineno)
+static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsigned char *name, unsigned int *lineno)
 {
 	int extract = 1;
 
@@ -441,7 +489,7 @@ static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, char *n
 	}
 }
 
-static void merge_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, char *name, unsigned int *lineno)
+static void merge_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned char *name, unsigned int *lineno)
 {
 	int extract = 1;
 
@@ -471,7 +519,7 @@ int main(int argc, char *argv[])
 		unsigned char out_path[PATH_LENGTH];
 		FILE *ifile[4] = { NULL, NULL, NULL, NULL };
 		FILE *ofile =  NULL;
-		char *names[] = { "KERNELTEXT1", "KERNELTEXT2", "KERNELTEXT3", "KERNELTEXT4" };
+		unsigned char *names[] = { "KERNELTEXT1", "KERNELTEXT2", "KERNELTEXT3", "KERNELTEXT4" };
 
 		make_paths(argv[1], out_path);
 		if (open_files(ifile, &ofile, argv[2], out_path, names))

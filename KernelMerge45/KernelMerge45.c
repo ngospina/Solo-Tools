@@ -39,7 +39,7 @@
 #define LENGTH		1024
 #define PATH_LENGTH	1024
 
-static void make_paths(char *path, unsigned char *out_path)
+static void make_paths(unsigned char *path, unsigned char *out_path)
 {
 	unsigned int len = strlen(path);
 
@@ -73,7 +73,7 @@ static void close_files(FILE *ifile[4], FILE **ofile)
 	}
 }
 
-static int open_files(FILE *ifile[4], FILE **ofile, char *name, unsigned char *out_path, char *names[])
+static int open_files(FILE *ifile[4], FILE **ofile, unsigned char *name, unsigned char *out_path, unsigned char *names[])
 {
 	unsigned int i;
 	unsigned int opened = 0;
@@ -125,12 +125,12 @@ static void read_line(FILE *ifile, unsigned char *line, unsigned int *lineno)
 	(*lineno)++;
 }
 
-static void write_line(char *line, FILE *ofile)
+static void write_line(unsigned char *line, FILE *ofile)
 {
 	fprintf(ofile, "%s", line);
 }
 
-static void write_comment_line(char *line, FILE *ofile)
+static void write_comment_line(unsigned char *line, FILE *ofile)
 {
 	fprintf(ofile, "                                   ;\"%s\"\n", line);
 }
@@ -182,7 +182,7 @@ static void insert_lines_kernel4(FILE *ofile, unsigned int lineno)
 	}
 }
 
-static void adjust_line_kernel1(char *line)
+static void adjust_line_kernel1(unsigned char *line)
 {
 	char *p;
 
@@ -194,10 +194,15 @@ static void adjust_line_kernel1(char *line)
 	}
 }
 
-static void adjust_line_kernel2(char *line)
+static void adjust_line_kernel2(unsigned char *line)
 {
 	char *p;
 
+	p = strstr(line, "; MACRO ");
+	if (p != NULL)
+	{
+		memmove(p + 2, p + 8, strlen(p) - 7);
+	}
 	p = strstr(line, "VAR READY");
 	if (p != NULL)
 	{
@@ -225,7 +230,7 @@ static void adjust_line_kernel2(char *line)
 	}
 }
 
-static void adjust_line_kernel3(char *line)
+static void adjust_line_kernel3(unsigned char *line)
 {
 	char *p;
 
@@ -242,7 +247,7 @@ static void adjust_line_kernel3(char *line)
 	}
 }
 
-static void adjust_line_kernel4(char *line)
+static void adjust_line_kernel4(unsigned char *line)
 {
 	char *p;
 
@@ -344,7 +349,7 @@ static void adjust_line_kernel4(char *line)
 	}
 }
 
-static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, char *name)
+static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, unsigned char *name)
 {
 	int extract = 1;
 
@@ -363,7 +368,7 @@ static void merge_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsigne
 	}
 }
 
-static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, char *name)
+static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, unsigned char *name)
 {
 	int extract = 1;
 
@@ -381,7 +386,7 @@ static void merge_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsigne
 	}
 }
 
-static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, char *name)
+static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, unsigned char *name)
 {
 	int extract = 1;
 
@@ -399,7 +404,7 @@ static void merge_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsigne
 	}
 }
 
-static void merge_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, char *name)
+static void merge_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno, unsigned char *name)
 {
 	int extract = 1;
 
@@ -430,7 +435,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		unsigned char out_path[PATH_LENGTH];
-		char *names[] = { "KERNELTEXT1", "KERNELTEXT2", "KERNELTEXT3", "KERNELTEXT4" };
+		unsigned char *names[] = { "KERNELTEXT1", "KERNELTEXT2", "KERNELTEXT3", "KERNELTEXT4" };
 
 		make_paths(argv[1], out_path);
 		if (open_files(ifile, &ofile, argv[2], out_path, names))
