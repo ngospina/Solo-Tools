@@ -3,13 +3,13 @@ SOLO A single-user operating system developed by Per Brinch Hansen and his team 
 
 Tools to manipulate SOLO tape images
 
-|Tool      |Description                        |
+|Directory |Description                        |
 |----------|------------------------------------|
 |TapExtract|Extract files from a SOLO tape image|
 
 Tools to manipulate SOLO disk images
 
-|Tool      |Description                                                                |
+|Directory |Description                                                                |
 |----------|---------------------------------------------------------------------------|
 |DskCatalog|Print the catalog of a dsk SOLO disk image                                 |
 |DskExtract|Extract segments and files from a dsk SOLO disk image                      |
@@ -19,7 +19,7 @@ Tools to manipulate SOLO disk images
 
 Tools to manipulate SOLO files
 
-|Tool           |Description                                                                  |
+|Directory      |Description                                                                  |
 |---------------|-----------------------------------------------------------------------------|
 |Decoder        |Concurrent Pascal virtual machine decoder                                    |
 |KernelMerge34  |Merges in a single file the PDP-11/34 kernel source files                    |
