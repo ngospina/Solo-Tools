@@ -240,22 +240,6 @@ static void adjust_line_kernel1(unsigned char *line)
 		memmove(p + 40, p + 36, strlen(p) - 35);
 		strncpy(p + 33, "<01>   ", 7);
 	}
-	p = strstr(line, "8 STACK");
-	if (p != NULL)
-	{
-		memmove(p + 3, p + 1, strlen(p) - 1);
-		strncpy(p, "TWO", 3);
-	}
-	p = strstr(line, "STATUS, RETURN");
-	if (p != NULL)
-	{
-		strncpy(p + 6, " AND RETURN OF THE INI-\n", 24);
-	}
-	p = strstr(line, "OF THE INITIAL");
-	if (p != NULL)
-	{
-		memmove(p, p + 10, strlen(p) - 0);
-	}
 	p = strstr(line, "& REGISTERS");
 	if (p != NULL)
 	{
@@ -314,17 +298,6 @@ static void adjust_line_kernel3(unsigned char *line)
 {
 	unsigned char *p;
 
-	p = strstr(line, "SEARCHREG := DISKADDR");
-	if (p != NULL)
-	{
-		memmove(p + 22, p + 21, strlen(p) - 20);
-		p[21] = ';';
-	}
-	p = strstr(line, "+ UNIT;");
-	if (p != NULL)
-	{
-		memmove(p, p + 7, strlen(p) - 6);
-	}
 	p = strstr(line, "CURSOR@.(.I.)");
 	if (p != NULL)
 	{
