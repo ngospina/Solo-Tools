@@ -83,7 +83,6 @@ static void write_line(unsigned char *line, unsigned int lineno, FILE *ofile)
 	}
 	if (count > 0)
 	{
-		//fprintf(ofile, "%4d: %s", lineno, line);
 		fprintf(ofile, "%s", line);
 	}
 }
@@ -115,19 +114,18 @@ static void extract_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 			if ((*lineno >= 137 && *lineno <= 150) ||
 				(*lineno >= 155 && *lineno <= 170) ||
 				*lineno == 1011 || *lineno == 1088 || *lineno == 1259 || *lineno == 1289 ||
-				*lineno == 1333 || *lineno == 1522 || *lineno == 1551 ||
-				(*lineno >= 1869 && *lineno <= 1883))
+				*lineno == 1333 || *lineno == 1522 || *lineno == 1551)
 			{
 				if (*lineno == 137 || *lineno == 1011 || *lineno == 1088 ||
 					*lineno == 1259 || *lineno == 1289 || *lineno == 1333 || *lineno == 1522 ||
-					*lineno == 1551 || *lineno == 1869)
+					*lineno == 1551)
 				{
 					write_line("\"\n", *lineno, ofile);
 				}
 				write_line(line + 1, *lineno, ofile);
 				if (*lineno == 170 || *lineno == 1011 ||  *lineno == 1088 ||
 					*lineno == 1259 || *lineno == 1289 || *lineno == 1333 || *lineno == 1522 ||
-					*lineno == 1551 || *lineno == 1883)
+					*lineno == 1551)
 				{
 					write_line("\"\n", *lineno, ofile);
 				}
@@ -136,9 +134,10 @@ static void extract_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 			{
 				write_line(line + 29, *lineno, ofile);
 			}
-			else if (*lineno == 1637)
+			else if (*lineno == 1633)
 			{
-				write_line(line + 8, *lineno, ofile);
+				memmove(line + 57, line + 72, strlen(line) - 71);
+				write_line(line + 36, *lineno, ofile);
 			}
 			else if ((*lineno >= 1015 && *lineno <= 1018) ||
 				(*lineno >= 1020 && *lineno <= 1021) ||
@@ -157,9 +156,11 @@ static void extract_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 				(*lineno >= 1403 && *lineno <= 1507) ||
 				(*lineno >= 1509 && *lineno <= 1518) ||
 				(*lineno >= 1520 && *lineno <= 1544) ||
-				(*lineno >= 1546 && *lineno <= 1614) ||
+				(*lineno >= 1546 && *lineno <= 1582) ||
+				(*lineno >= 1584 && *lineno <= 1614) ||
 				(*lineno >= 1616 && *lineno <= 1630) ||
-				(*lineno >= 1632 && *lineno <= 1815) ||
+				(*lineno >= 1632 && *lineno <= 1633) ||
+				(*lineno >= 1638 && *lineno <= 1815) ||
 				(*lineno >= 1818 && *lineno <= 1848) ||
 				(*lineno >= 1850))
 			{
@@ -187,7 +188,9 @@ static void extract_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 		extract = strstr(line, "KERNELTEXT3") == NULL;
 		if (extract) {
 			adjust_line(line);
-			if (*lineno != 2592)
+			if ((*lineno <= 2111 || *lineno >= 2115) &&
+				(*lineno <= 2534 || *lineno >= 2539) &&
+				*lineno != 2592)
 			{
 				if (line[35] == ';')
 				{
@@ -212,17 +215,18 @@ static void extract_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 	{
 		extract = strstr(line, "KERNELTEXT4") == NULL;
 		if (extract) {
-			adjust_line(line);
-			if (*lineno == 3773)
-			{
-				write_line(line + 26, *lineno, ofile);
-			}
-			else if (*lineno == 4537 || *lineno == 4552)
+			adjust_line(line);		
+			if (*lineno == 4537 || *lineno == 4552)
 			{
 				write_line(line + 22, *lineno, ofile);
 			}
 			else if (line[35] == ';')
 			{
+				if (*lineno == 3772)
+				{
+					memmove(line + 65, line + 64, strlen(line) - 63);
+					line[64] = ';';
+				}
 				write_line(line + 36, *lineno, ofile);
 			}
 			read_line(ifile, line, lineno);
@@ -230,7 +234,7 @@ static void extract_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 	}
 }
 
-static void extract_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
+static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
 {
 	read_line(ifile, line, lineno);
 	while (!feof(ifile))
@@ -265,10 +269,6 @@ static void extract_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 			{
 				write_line(line + 33, *lineno, ofile);
 			}
-			/*else if (line[28] == ';')
-			{
-				write_line(line + 29, *lineno, ofile);
-			}*/
 			else if (line[25] == ';')
 			{
 				write_line(line + 26, *lineno, ofile);
@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					extract_kernel4(ifile, ofile, line, &lineno);
+					extract_interpreter(ifile, ofile, line, &lineno);
 					fclose(ofile);
 				}
 			}

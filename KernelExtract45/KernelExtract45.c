@@ -39,7 +39,7 @@
 #define LENGTH		1024
 #define PATH_LENGTH	1024
 
-static void make_out_path(char *in_path, char *name, unsigned char *out_path)
+static void make_out_path(unsigned char *in_path, unsigned char *name, unsigned char *out_path)
 {
 	int i;
 	unsigned int len = strlen(in_path);
@@ -100,22 +100,24 @@ static void extract_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 			if ((*lineno >= 35 && *lineno <= 48) ||
 				(*lineno >= 53 && *lineno <= 67) ||
 				*lineno == 893 || *lineno == 970 || *lineno == 1141 || *lineno == 1173 ||
-				*lineno == 1218 ||*lineno == 1296 || *lineno == 1323 ||
-				(*lineno >= 1630 && *lineno <= 1644))
+				*lineno == 1218 ||*lineno == 1296 || *lineno == 1323)
 			{
 				if (*lineno == 35 || *lineno == 893 || *lineno == 970 || *lineno == 1141 ||
-					*lineno == 1173 || *lineno == 1218 || *lineno == 1296 || *lineno == 1323 ||
-					*lineno == 1630)
+					*lineno == 1173 || *lineno == 1218 || *lineno == 1296 || *lineno == 1323)
 				{
 					write_line("\"\n", ofile);
 				}
 				write_line(line + 1, ofile);
 				if (*lineno == 67 || *lineno == 893 || *lineno == 970 || *lineno == 1141 ||
-					*lineno == 1173 || *lineno == 1218 || *lineno == 1296 || *lineno == 1323 ||
-					*lineno == 1644)
+					*lineno == 1173 || *lineno == 1218 || *lineno == 1296 || *lineno == 1323)
 				{
 					write_line("\"\n", ofile);
 				}
+			}
+			else if (*lineno == 1396)
+			{
+				memmove(line + 57, line + 72, strlen(line) - 71);
+				write_line(line + 36, ofile);
 			}
 			else if ((*lineno >= 897 && *lineno <= 900) ||
 				(*lineno >= 902 && *lineno <= 903) ||
@@ -136,9 +138,10 @@ static void extract_kernel1(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 				(*lineno >= 1282 && *lineno <= 1286) ||
 				(*lineno >= 1288 && *lineno <= 1292) ||
 				(*lineno >= 1294 && *lineno <= 1316) ||
-				(*lineno >= 1318 && *lineno <= 1381) ||
+				(*lineno >= 1318 && *lineno <= 1354) ||
+				(*lineno >= 1356 && *lineno <= 1381) ||
 				(*lineno >= 1383 && *lineno <= 1393) ||
-				(*lineno >= 1395 && *lineno <= 1576) ||
+				(*lineno >= 1401 && *lineno <= 1576) ||
 				(*lineno >= 1579 && *lineno <= 1609) ||
 				(*lineno >= 1611))
 			{
@@ -165,13 +168,17 @@ static void extract_kernel2(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 	{
 		extract = strstr(line, "KERNELTEXT3") == NULL;
 		if (extract) {
-			if (line[35] == ';')
+			if ((*lineno <= 1872 || *lineno >= 1876) &&
+				(*lineno <= 2295 || *lineno >= 2300)) 
 			{
-				write_line(line + 36, ofile);
-			}
-			else if (line[32] == ';')
-			{
-				write_line(line + 33, ofile);
+				if (line[35] == ';')
+				{
+					write_line(line + 36, ofile);
+				}
+				else if (line[32] == ';')
+				{
+					write_line(line + 33, ofile);
+				}
 			}
 			read_line(ifile, line, lineno);
 		}
