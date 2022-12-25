@@ -203,7 +203,7 @@ static void extract_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 	}
 }
 
-static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
+static void extract_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
 {
 	read_line(ifile, line, lineno);
 	while (!feof(ifile))
@@ -220,9 +220,12 @@ static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, u
 				write_line("\"\n", ofile);
 			}
 		}
-		else if ((*lineno >= 4415 && *lineno <= 4487) ||
+		else if ((*lineno >= 4415 && *lineno <= 4427) ||
+			(*lineno >= 4429 && *lineno <= 4487) ||
 			(*lineno >= 4490 && *lineno <= 4504) ||
-			(*lineno >= 4517 && *lineno <= 5879))
+			(*lineno >= 4517 && *lineno <= 5278) ||
+			(*lineno >= 5280 && *lineno <= 5283) ||
+			(*lineno >= 5285 && *lineno <= 5879))
 		{
 			if (line[35] == ';')
 			{
@@ -243,9 +246,9 @@ static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, u
 
 int main(int argc, char *argv[])
 {
-	if ((argc != 4) || (argv[0] == NULL))
+	if ((argc != 3) || (argv[0] == NULL))
 	{
-		printf("Usage is: KernelExtract45 <Merged kernel file> <Kernel file> <Interpreter file>\n");
+		printf("Usage is: KernelExtract45 <Merged kernel file> <Kernel file>\n");
 	}
 	else
 	{
@@ -275,18 +278,8 @@ int main(int argc, char *argv[])
 				extract_kernel1(ifile, ofile, line, &lineno);
 				extract_kernel2(ifile, ofile, line, &lineno);
 				extract_kernel3(ifile, ofile, line, &lineno);
+				extract_kernel4(ifile, ofile, line, &lineno);
 				fclose(ofile);
-				make_out_path(argv[1], argv[3], out_path);
-				ofile = fopen(out_path, "wb");
-				if (ofile == NULL)
-				{
-					printf("Error creating file: %s\n", out_path);
-				}
-				else
-				{
-					extract_interpreter(ifile, ofile, line, &lineno);
-					fclose(ofile);
-				}
 			}
 			fclose(ifile);
 		}

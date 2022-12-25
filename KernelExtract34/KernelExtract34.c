@@ -234,7 +234,7 @@ static void extract_kernel3(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 	}
 }
 
-static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
+static void extract_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsigned int *lineno)
 {
 	read_line(ifile, line, lineno);
 	while (!feof(ifile))
@@ -257,9 +257,12 @@ static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, u
 			memmove(line + 53, line + 56, strlen(line) - 55);
 			write_line(line + 29, *lineno, ofile);
 		}
-		else if ((*lineno >= 4696 && *lineno <= 4766) ||
+		else if ((*lineno >= 4696 && *lineno <= 4706) ||
+			(*lineno >= 4708 && *lineno <= 4766) ||
 			(*lineno >= 4769 && *lineno <= 4783) ||
-			(*lineno >= 4796 && *lineno <= 6213))
+			(*lineno >= 4796 && *lineno <= 5599) ||
+			(*lineno >= 5601 && *lineno <= 5604) ||
+			(*lineno >= 5606 && *lineno <= 6213))
 		{
 			if (line[35] == ';')
 			{
@@ -280,9 +283,9 @@ static void extract_interpreter(FILE *ifile, FILE *ofile, unsigned char *line, u
 
 int main(int argc, char *argv[])
 {
-	if ((argc != 4) || (argv[0] == NULL))
+	if ((argc != 3) || (argv[0] == NULL))
 	{
-		printf("Usage is: KernelExtract34 <Merged kernel file> <Kernel file> <Interpreter file>\n");
+		printf("Usage is: KernelExtract34 <Merged kernel file> <Kernel file>\n");
 	}
 	else
 	{
@@ -311,18 +314,8 @@ int main(int argc, char *argv[])
 				extract_kernel1(ifile, ofile, line, &lineno);
 				extract_kernel2(ifile, ofile, line, &lineno);
 				extract_kernel3(ifile, ofile, line, &lineno);
+				extract_kernel4(ifile, ofile, line, &lineno);
 				fclose(ofile);
-				make_out_path(argv[1], argv[3], out_path);
-				ofile = fopen(out_path, "wb");
-				if (ofile == NULL)
-				{
-					printf("Error creating file: %s\n", out_path);
-				}
-				else
-				{
-					extract_interpreter(ifile, ofile, line, &lineno);
-					fclose(ofile);
-				}
 			}
 			fclose(ifile);
 		}
