@@ -223,9 +223,27 @@ static void extract_kernel4(FILE *ifile, FILE *ofile, unsigned char *line, unsig
 		else if ((*lineno >= 4415 && *lineno <= 4427) ||
 			(*lineno >= 4429 && *lineno <= 4487) ||
 			(*lineno >= 4490 && *lineno <= 4504) ||
-			(*lineno >= 4517 && *lineno <= 5278) ||
+			(*lineno >= 4517 && *lineno <= 4568) ||
+			(*lineno >= 4570 && *lineno <= 4847) ||
+			(*lineno >= 4850 && *lineno <= 4861) ||
+			(*lineno >= 4864 && *lineno <= 4877) ||
+			(*lineno >= 4880 && *lineno <= 4904) ||
+			*lineno == 4906 ||
+			(*lineno >= 4909 && *lineno <= 4923) ||
+			*lineno == 4925 ||
+			(*lineno >= 4928 && *lineno <= 4942) ||
+			*lineno == 4944 ||
+			(*lineno >= 4947 && *lineno <= 5052) ||
+			(*lineno >= 5054 && *lineno <= 5064) ||
+			(*lineno >= 5066 && *lineno <= 5076) ||
+			(*lineno >= 5078 && *lineno <= 5088) ||
+			(*lineno >= 5090 && *lineno <= 5100) ||
+			(*lineno >= 5102 && *lineno <= 5112) ||
+			(*lineno >= 5114 && *lineno <= 5278) ||
 			(*lineno >= 5280 && *lineno <= 5283) ||
-			(*lineno >= 5285 && *lineno <= 5879))
+			(*lineno >= 5285 && *lineno <= 5692) ||
+			(*lineno >= 5695 && *lineno <= 5703) ||
+			(*lineno >= 5706 && *lineno <= 5879))
 		{
 			if (line[35] == ';')
 			{
