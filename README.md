@@ -19,10 +19,12 @@ Tools to manipulate SOLO disk images
 
 Tools to manipulate SOLO files
 
-|Directory      |Description                                                                  |
-|---------------|-----------------------------------------------------------------------------|
-|Decoder        |Concurrent Pascal virtual machine decoder                                    |
-|KernelMerge34  |Merges in a single file the PDP-11/34 kernel source files                    |
-|KernelMerge45  |Merges in a single file the PDP-11/45 kernel source files                    |
-|KernelExtract34|Extracts the high level encoding from the PDP-11/34 merged kernel source file|
-|KernelExtract45|Extracts the high level encoding from the PDP-11/45 merged kernel source file|
+|Directory         |Description                                                                  |
+|------------------|-----------------------------------------------------------------------------|
+|Decoder           |Concurrent Pascal virtual machine decoder                                    |
+|KernelMerge34     |Merges in a single file the PDP-11/34 kernel source files                    |
+|KernelMerge45     |Merges in a single file the PDP-11/45 kernel source files                    |
+|KernelExtract34   |Extracts the high level encoding from the PDP-11/34 merged kernel source file|
+|KernelExtract45   |Extracts the high level encoding from the PDP-11/45 merged kernel source file|
+|InterpreterExtract|Extracts the interpreter high level encoding from the kernel source file     |
+
