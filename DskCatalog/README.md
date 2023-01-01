@@ -1,2 +1,2 @@
 # DskCatalog
-Print the catalog of a dsk SOLO disk image
+Print the catalog of a dsk Solo disk image

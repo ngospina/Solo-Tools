@@ -1,2 +1,2 @@
 # DskExtract
-Extract segments and files from SOLO disk images
+Extract segments and files from Solo disk images

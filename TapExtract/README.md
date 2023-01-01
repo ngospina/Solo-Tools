@@ -1,2 +1,2 @@
 # TapExtract
-Extract files from SOLO tape images (.tap)
+Extract files from Solo tape images (.tap)

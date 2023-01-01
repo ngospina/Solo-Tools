@@ -1,23 +1,23 @@
-# SOLO Tools
-SOLO A single-user operating system developed by Per Brinch Hansen and his team (1974-1975)
+# Solo Tools
+Solo A single-user operating system developed by Per Brinch Hansen and his team (1974-1975)
 
-Tools to manipulate SOLO tape images
+Tools to manipulate Solo tape images
 
 |Directory |Description                        |
 |----------|------------------------------------|
-|TapExtract|Extract files from a SOLO tape image|
+|TapExtract|Extract files from a Solo tape image|
 
-Tools to manipulate SOLO disk images
+Tools to manipulate Solo disk images
 
 |Directory |Description                                                                |
 |----------|---------------------------------------------------------------------------|
-|DskCatalog|Print the catalog of a dsk SOLO disk image                                 |
-|DskExtract|Extract segments and files from a dsk SOLO disk image                      |
-|DskMatch  |Match the pages of a dsk SOLO disk image and any other SOLO disk image     | 
-|DskMap    |Create C header file with page map vector for dsk and rk05 SOLO disk images|  
-|RK05toDsk |Create a dsk SOLO disk image from a rk05 SOLO disk image                   |
+|DskCatalog|Print the catalog of a dsk Solo disk image                                 |
+|DskExtract|Extract segments and files from a dsk Solo disk image                      |
+|DskMatch  |Match the pages of a dsk Solo disk image and any other Solo disk image     | 
+|DskMap    |Create C header file with page map vector for dsk and rk05 Solo disk images|  
+|RK05toDsk |Create a dsk SOLO disk image from a rk05 Solo disk image                   |
 
-Tools to manipulate SOLO files
+Tools to manipulate Solo files
 
 |Directory         |Description                                                                  |
 |------------------|-----------------------------------------------------------------------------|
