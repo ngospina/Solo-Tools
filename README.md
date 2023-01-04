@@ -3,7 +3,7 @@ Solo A single-user operating system developed by Per Brinch Hansen and his team 
 
 Tools to manipulate Solo tape images
 
-|Directory |Description                        |
+|Directory |Description                         |
 |----------|------------------------------------|
 |TapExtract|Extract files from a Solo tape image|
 
