@@ -1,5 +1,5 @@
 /*
-    SOLO.h
+    Solo.h
     Copyright (C) 2022. Gerardo Ospina
 */
 

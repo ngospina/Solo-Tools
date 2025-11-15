@@ -1,6 +1,6 @@
 /*
-    SOLO.h
-    Copyrighth (C) 2022. Gerardo Ospina
+    Solo.h
+    Copyright (C) 2022. Gerardo Ospina
 */
 
 #ifndef _SOLO_H_
