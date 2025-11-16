@@ -1,9 +1,9 @@
 /* 
 	DskMatch.c
-	Copyright (C) 2011-2017, 2022. Gerardo Ospina
+	Copyright (C) 2011-2017, 2022, 2025. Gerardo Ospina
 
-	This program matches the pages of a .dsk SOLO disk image and any other
-	SOLO disk image
+	This program matches the pages of a .dsk Solo disk image and any other
+	Solo disk image
 
 	Permission is hereby granted, free of charge, to any person obtaining a
 	copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SOLO.h"
+#include "solo.h"
 #include "LCS.h"
 
 #define DELTA 0

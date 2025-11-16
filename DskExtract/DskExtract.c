@@ -1,8 +1,8 @@
 /*
 	DskExtract.c
-	Copyright (c) 2009-2021. Gerardo Ospina
+	Copyright (c) 2009-2021, 2025. Gerardo Ospina
 
-	This program extracts data from a simulated SOLO removable pack disk
+	This program extracts data from a simulated Solo removable pack disk
 
 	Permission is hereby granted, free of charge, to any person obtaining a
 	copy of this software and associated documentation files (the "Software"),
@@ -28,7 +28,7 @@
 
 /*
     Requires the following directories defined in the directory that contains
-    the SOLO disk image to be processed
+    the Solo disk image to be processed
 
     +--Files
     |  +--ASCII
@@ -42,14 +42,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SOLO.h"
+#include "solo.h"
 
 #if defined(_WIN32) || defined(WIN32)
 #define SEPARATOR '\\'
 #else
 #define SEPARATOR '/'
 #endif
-
 
 static char path[PATH_LENGTH];
 static char filename[PATH_LENGTH];

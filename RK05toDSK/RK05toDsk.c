@@ -1,8 +1,8 @@
 /*
 	RK05toDsk.c
-	Copyright (C) 2016-2017, 2022. Gerardo Ospina
+	Copyright (C) 2016-2017, 2022, 2025. Gerardo Ospina
 
-	This program creates a dsk SOLO file image from a rk05 SOLO file image
+	This program creates a dsk Solo file image from a rk05 Solo file image
 
 	Permission is hereby granted, free of charge, to any person obtaining a
 	copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SOLO.h"
+#include "solo.h"
 #include "DskRK05Map.h"
 
 static void read_rk05(FILE *rk05_file, unsigned int *n_rk05_pages, TPage *rk05_pages)

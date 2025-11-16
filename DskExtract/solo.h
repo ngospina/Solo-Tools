@@ -1,13 +1,14 @@
 /*
     solo.h
-    Copyright (C) 2022. Gerardo Ospina
+    Copyright (C) 2022, 2025. Gerardo Ospina
 */
 
 #ifndef _SOLO_H_
 
 #define _SOLO_H_
 
-#define KERNEL_PAGE	0
+#define DISK_PAGES      4800
+#define KERNEL_PAGE	    0
 #define SOLO_PAGE		24
 #define OTHER_OS_PAGE	88
 #define CATALOG_PAGE    154
@@ -25,8 +26,8 @@
 #define SEQCODE	3
 #define CONCODE	4
 
-typedef unsigned char   TPage[PAGE_LENGTH];
-typedef unsigned short  TPageMap[PAGEMAP_LENGTH];
+typedef unsigned char  TPage[PAGE_LENGTH];
+typedef unsigned short TPageMap[PAGEMAP_LENGTH];
 
 typedef union {
     TPage    page;
@@ -34,7 +35,7 @@ typedef union {
 } TFile;
 
 typedef struct {
-    unsigned char id[ID_LENGTH];
+    unsigned char  id[ID_LENGTH];
     unsigned short kind, addr, protect;
     unsigned short unused[5];
     unsigned short key;
@@ -44,9 +45,8 @@ typedef struct {
 typedef TFileEntry TFileMap[FILEMAP_LENGTH];
 
 typedef union {
-    TPage page;
+    TPage    page;
     TFileMap filemap;
 } TCatalog;
 
 #endif /* _SOLO_H_ */
-

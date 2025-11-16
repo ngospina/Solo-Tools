@@ -1,8 +1,8 @@
 /*
 	DskCatalog.c
-	Copyright (c) 2009-2017. Gerardo Ospina
+	Copyright (c) 2009-2017, 2025. Gerardo Ospina
 
-	This program prints the catalog of a dsk SOLO disk image
+	This program prints the catalog of a dsk Solo disk image
 
 	Permission is hereby granted, free of charge, to any person obtaining a
 	copy of this software and associated documentation files (the "Software"),
@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SOLO.h"
+#include "solo.h"
 
 static void PageMap(FILE *ifile, FILE *ofile, int page)
 {

@@ -1,9 +1,9 @@
 /*
 	DskMap.c
-	Copyright (C) 2017, 2022. Gerardo Ospina
+	Copyright (C) 2017, 2022, 2025. Gerardo Ospina
 
 	This program creates a C header file with page map vector for dsk and rk05 
-	SOLO Images
+	Solo Images
 
 	Permission is hereby granted, free of charge, to any person obtaining a
 	copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SOLO.h"
+#include "solo.h"
 #include "DskImageMap.h"
 
 static void genSectorMap(int page, int index, unsigned int *dsk_rk05_map)
